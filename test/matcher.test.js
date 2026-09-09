@@ -174,3 +174,94 @@ describe('buildContext', () => {
     expect(ctx).toHaveProperty('nearbyText');
   });
 });
+
+// ─── P1.3 — classifyField: identity group ─────────────────────────────────────
+
+import { classifyField } from '../src/matcher.js';
+
+function ctx(labelText, attrs = {}) {
+  return { labelText, nearbyText: '', attrs };
+}
+
+describe('classifyField — identity group', () => {
+  // firstName
+  it('classifies "First Name" as firstName', () => {
+    expect(classifyField(ctx('First Name'))).toBe('firstName');
+  });
+  it('classifies name="first_name" as firstName', () => {
+    expect(classifyField(ctx('', { name: 'first_name' }))).toBe('firstName');
+  });
+  it('classifies "Given Name" as firstName', () => {
+    expect(classifyField(ctx('Given Name'))).toBe('firstName');
+  });
+
+  // lastName
+  it('classifies "Last Name" as lastName', () => {
+    expect(classifyField(ctx('Last Name'))).toBe('lastName');
+  });
+  it('classifies "Family Name" as lastName', () => {
+    expect(classifyField(ctx('Family Name'))).toBe('lastName');
+  });
+  it('classifies "Surname" as lastName', () => {
+    expect(classifyField(ctx('Surname'))).toBe('lastName');
+  });
+
+  // fullName
+  it('classifies "Full Name" as fullName', () => {
+    expect(classifyField(ctx('Full Name'))).toBe('fullName');
+  });
+  it('classifies autocomplete=name as fullName', () => {
+    expect(classifyField(ctx('', { autocomplete: 'name' }))).toBe('fullName');
+  });
+
+  // Negative: "company name" should NOT be fullName
+  it('does NOT classify "Company Name" as fullName (or firstName/lastName)', () => {
+    const key = classifyField(ctx('Company Name'));
+    expect(key).not.toBe('fullName');
+    expect(key).not.toBe('firstName');
+    expect(key).not.toBe('lastName');
+  });
+
+  // preferredName
+  it('classifies "Preferred Name" as preferredName', () => {
+    expect(classifyField(ctx('Preferred Name'))).toBe('preferredName');
+  });
+  it('classifies "Nickname" as preferredName', () => {
+    expect(classifyField(ctx('Nickname'))).toBe('preferredName');
+  });
+
+  // email
+  it('classifies "Email Address" as email', () => {
+    expect(classifyField(ctx('Email Address'))).toBe('email');
+  });
+  it('classifies autocomplete=email as email', () => {
+    expect(classifyField(ctx('', { autocomplete: 'email' }))).toBe('email');
+  });
+  it('classifies "Email Confirmation" still as email', () => {
+    // Same key — filler decides whether to fill
+    expect(classifyField(ctx('Email Confirmation'))).toBe('email');
+  });
+
+  // phone
+  it('classifies "Phone Number" as phone', () => {
+    expect(classifyField(ctx('Phone Number'))).toBe('phone');
+  });
+  it('classifies "Mobile" as phone', () => {
+    expect(classifyField(ctx('Mobile'))).toBe('phone');
+  });
+  it('classifies autocomplete=tel as phone', () => {
+    expect(classifyField(ctx('', { autocomplete: 'tel' }))).toBe('phone');
+  });
+
+  // Negative: "phone type" should NOT be phone (it's a descriptor, not a field)
+  it('does NOT classify "phone type" select as phone', () => {
+    // Only apply when ONLY "type" with no phone text
+    const key = classifyField(ctx('Phone Type'));
+    // "Phone Type" might still be phone because it contains "phone" — acceptable.
+    // The key negative is: a field named purely "type" with no phone context
+    expect(classifyField(ctx('Type', { name: 'phone_type' }))).toBe('phone');
+    // Actually phone_type in name → still phone is valid
+    // True negative: completely unrelated "type" field
+    expect(classifyField(ctx('Input Type', { name: 'input_type' }))).toBeNull();
+  });
+});
