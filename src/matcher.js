@@ -304,6 +304,41 @@ const CLASSIFY_RULES = [
              ac === 'country' || ac === 'country-name';
     },
   },
+  // ── Links group (P1.5) ─────────────────────────────────────────
+  {
+    key: 'linkedin',
+    test: (ctx) => {
+      const t = _ctxText(ctx);
+      const n = ctx.attrs.name || '';
+      return /linkedin/i.test(t) || /linkedin/i.test(n);
+    },
+  },
+  {
+    key: 'github',
+    test: (ctx) => {
+      const t = _ctxText(ctx);
+      const n = ctx.attrs.name || '';
+      return /github/i.test(t) || /github/i.test(n);
+    },
+  },
+  {
+    key: 'portfolio',
+    test: (ctx) => {
+      const t = _ctxText(ctx);
+      const n = ctx.attrs.name || '';
+      return /portfolio|work\s*sample/i.test(t) || /portfolio/i.test(n);
+    },
+  },
+  {
+    key: 'website',
+    test: (ctx) => {
+      const t = _ctxText(ctx);
+      const n = ctx.attrs.name || '';
+      // Negative: company website should not fill candidate's personal website
+      if (/company|employer|organization/i.test(t) || /company|employer/i.test(n)) return false;
+      return /\bwebsite\b|personal\s*site|homepage/i.test(t) || /\bwebsite\b|homepage/i.test(n);
+    },
+  },
   // ── Identity group (P1.3) ──────────────────────────────────────
   // preferredName — more specific than firstName
   {
