@@ -147,7 +147,28 @@ export function buildContext(el) {
     nearbyText = _findNearbyText(el);
   }
 
-  return { attrs, labelText, nearbyText };
+  // 5. sectionHint — look for nearest section heading to distinguish edu vs work
+  const sectionHint = _detectSection(el);
+
+  return { attrs, labelText, nearbyText, sectionHint };
+}
+
+/**
+ * Detect section context by scanning ancestor headings.
+ * @param {HTMLElement} el
+ * @returns {'education'|'workHistory'|null}
+ */
+function _detectSection(el) {
+  let node = el.parentElement;
+  for (let depth = 0; depth < 10; depth++) {
+    if (!node) break;
+    const text = (node.getAttribute('data-section') ||
+                  node.querySelector('h1,h2,h3,h4,legend')?.textContent || '').toLowerCase();
+    if (/education|school|university|degree/.test(text)) return 'education';
+    if (/experience|employment|work\s*history|position/.test(text)) return 'workHistory';
+    node = node.parentElement;
+  }
+  return null;
 }
 
 /**
@@ -302,6 +323,101 @@ const CLASSIFY_RULES = [
       return /\bcountry\b/i.test(t) ||
              /\bcountry\b/i.test(n) ||
              ac === 'country' || ac === 'country-name';
+    },
+  },
+  // ── Education group (P1.6) — sectionHint='education' preferred ─
+  {
+    key: 'school',
+    test: (ctx) => {
+      const t = _ctxText(ctx);
+      const n = ctx.attrs.name || '';
+      return ctx.sectionHint === 'education' &&
+             (/\bschool\b|university|college|institution/i.test(t) || /school|university/i.test(n));
+    },
+  },
+  {
+    key: 'degree',
+    test: (ctx) => {
+      const t = _ctxText(ctx);
+      return ctx.sectionHint === 'education' &&
+             /\bdegree\b|level\s*of\s*education/i.test(t);
+    },
+  },
+  {
+    key: 'fieldOfStudy',
+    test: (ctx) => {
+      const t = _ctxText(ctx);
+      return ctx.sectionHint === 'education' &&
+             /field\s*of\s*study|major|discipline|concentration/i.test(t);
+    },
+  },
+  {
+    key: 'gpa',
+    test: (ctx) => {
+      const t = _ctxText(ctx);
+      return /\bgpa\b|grade\s*point\s*average/i.test(t);
+    },
+  },
+  {
+    key: 'eduStartDate',
+    test: (ctx) => {
+      const t = _ctxText(ctx);
+      return ctx.sectionHint === 'education' && /start\s*date|\bfrom\b/i.test(t);
+    },
+  },
+  {
+    key: 'eduEndDate',
+    test: (ctx) => {
+      const t = _ctxText(ctx);
+      return ctx.sectionHint === 'education' &&
+             /end\s*date|graduation|to\b|through\b/i.test(t);
+    },
+  },
+  // ── workHistory group (P1.6) ────────────────────────────────────
+  {
+    key: 'company',
+    test: (ctx) => {
+      const t = _ctxText(ctx);
+      const n = ctx.attrs.name || '';
+      return ctx.sectionHint === 'workHistory' &&
+             (/\bcompany\b|employer|organization/i.test(t) || /company|employer/i.test(n));
+    },
+  },
+  {
+    key: 'jobTitle',
+    test: (ctx) => {
+      const t = _ctxText(ctx);
+      return ctx.sectionHint === 'workHistory' &&
+             /job\s*title|position|role|title/i.test(t);
+    },
+  },
+  {
+    key: 'workStartDate',
+    test: (ctx) => {
+      const t = _ctxText(ctx);
+      return ctx.sectionHint === 'workHistory' && /start\s*date|\bfrom\b/i.test(t);
+    },
+  },
+  {
+    key: 'workEndDate',
+    test: (ctx) => {
+      const t = _ctxText(ctx);
+      return ctx.sectionHint === 'workHistory' && /end\s*date|to\b|through\b/i.test(t);
+    },
+  },
+  {
+    key: 'jobDescription',
+    test: (ctx) => {
+      const t = _ctxText(ctx);
+      return ctx.sectionHint === 'workHistory' &&
+             /description|responsibilities|duties|summary/i.test(t);
+    },
+  },
+  {
+    key: 'workLocation',
+    test: (ctx) => {
+      const t = _ctxText(ctx);
+      return ctx.sectionHint === 'workHistory' && /\blocation\b/i.test(t);
     },
   },
   // ── Links group (P1.5) ─────────────────────────────────────────
