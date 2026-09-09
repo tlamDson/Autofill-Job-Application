@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>Honeypot Fixture</title></head>
+<body>
+<!-- Hidden honeypot field (should NOT be filled) -->
+<input id="hp-display-none" name="website_trap" type="text" style="display:none" />
+<input id="hp-hidden-zero" name="email_confirm_hp" type="text" style="width:0;height:0;overflow:hidden" />
+<input id="hp-visibility-hidden" name="trap" type="text" style="visibility:hidden" />
+<input id="hp-disabled" name="disabled_field" type="text" disabled />
+<input id="hp-readonly" name="readonly_field" type="text" readonly />
+
+<!-- Sensitive field (SSN — should NOT be filled) -->
+<label for="ssn-field">Social Security Number</label>
+<input id="ssn-field" name="ssn" type="text" />
+
+<!-- Regular visible fillable field (should be fillable) -->
+<label for="first-name">First Name</label>
+<input id="first-name" name="first_name" type="text" />
+
+<!-- Passport number — sensitive -->
+<label for="passport">Passport Number</label>
+<input id="passport" name="passport_number" type="text" />
+
+<!-- Date of birth with day/month/year — sensitive -->
+<label for="dob">Date of Birth</label>
+<input id="dob" name="date_of_birth" type="text" />
+
+<!-- Mother's maiden name — sensitive -->
+<label for="maiden">Mother's Maiden Name</label>
+<input id="maiden" name="mothers_maiden_name" type="text" />
+</body>
+</html>

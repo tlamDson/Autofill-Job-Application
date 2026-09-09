@@ -484,3 +484,64 @@ describe('classifyField — compensation', () => {
     expect(classifyField(ctx('Earliest Start Date'))).toBe('noticePeriod');
   });
 });
+
+// ─── P1.8 — Sensitive blocklist + isFillable ─────────────────────────────────
+
+import { isSensitiveField, isFillable } from '../src/matcher.js';
+
+describe('isSensitiveField', () => {
+  it('returns true for SSN field', () => {
+    expect(isSensitiveField(ctx('Social Security Number', { name: 'ssn' }))).toBe(true);
+  });
+  it('returns true for "SSN" label', () => {
+    expect(isSensitiveField(ctx('SSN'))).toBe(true);
+  });
+  it('returns true for passport number', () => {
+    expect(isSensitiveField(ctx('Passport Number', { name: 'passport_number' }))).toBe(true);
+  });
+  it('returns true for date of birth', () => {
+    expect(isSensitiveField(ctx('Date of Birth', { name: 'date_of_birth' }))).toBe(true);
+  });
+  it('returns true for mother maiden name', () => {
+    expect(isSensitiveField(ctx("Mother's Maiden Name", { name: 'mothers_maiden_name' }))).toBe(true);
+  });
+  it('returns true for bank routing number', () => {
+    expect(isSensitiveField(ctx('Bank Routing Number'))).toBe(true);
+  });
+  it('returns true for account number', () => {
+    expect(isSensitiveField(ctx('Account Number'))).toBe(true);
+  });
+
+  it('returns false for regular First Name', () => {
+    expect(isSensitiveField(ctx('First Name'))).toBe(false);
+  });
+  it('returns false for Email', () => {
+    expect(isSensitiveField(ctx('Email'))).toBe(false);
+  });
+});
+
+describe('isFillable (DOM checks)', () => {
+  let doc;
+  beforeEach(() => {
+    doc = loadFixture('honeypot.html');
+  });
+
+  it('returns false for display:none field', () => {
+    expect(isFillable(doc.getElementById('hp-display-none'))).toBe(false);
+  });
+  it('returns false for zero-size honeypot', () => {
+    expect(isFillable(doc.getElementById('hp-hidden-zero'))).toBe(false);
+  });
+  it('returns false for visibility:hidden', () => {
+    expect(isFillable(doc.getElementById('hp-visibility-hidden'))).toBe(false);
+  });
+  it('returns false for disabled field', () => {
+    expect(isFillable(doc.getElementById('hp-disabled'))).toBe(false);
+  });
+  it('returns false for readonly field', () => {
+    expect(isFillable(doc.getElementById('hp-readonly'))).toBe(false);
+  });
+  it('returns true for normal visible field', () => {
+    expect(isFillable(doc.getElementById('first-name'))).toBe(true);
+  });
+});
