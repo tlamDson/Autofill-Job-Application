@@ -1,0 +1,43 @@
+{
+  "manifest_version": 3,
+  "name": "Autofill Job Application",
+  "version": "0.1.0",
+  "description": "Autofill job applications for SWE roles — local-first, no auto-submit.",
+
+  "permissions": ["storage", "activeTab", "scripting"],
+
+  "background": {
+    "service_worker": "src/background.js",
+    "type": "module"
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/injected.js"],
+      "run_at": "document_idle",
+      "world": "MAIN"
+    }
+  ],
+
+  "action": {
+    "default_popup": "popup/index.html",
+    "default_title": "Autofill Job Application"
+  },
+
+  "options_ui": {
+    "page": "options/index.html",
+    "open_in_tab": true
+  },
+
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
