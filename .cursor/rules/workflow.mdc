@@ -1,0 +1,32 @@
+---
+description: Hub quy tắc làm việc cho dự án — trỏ tới developer-guide.mdc (git flow/PR/commit) và tdd.mdc (test), cộng quy tắc bất di bất dịch + phiên làm việc tự động
+alwaysApply: true
+---
+
+# Workflow — hub
+
+> Bản mirror của `.claude/rules/workflow.md` cho Cursor. Sửa quy trình git-flow/PR/commit thì
+> sửa `developer-guide.mdc`; sửa quy trình test thì sửa `tdd.mdc`. Sửa 2 file đó xong, quay lại
+> `.claude/rules/` sửa tương ứng để 2 bên không lệch nhau (không có cơ chế tự động sync).
+
+Xem thêm: `.cursor/rules/developer-guide.mdc`, `.cursor/rules/tdd.mdc`, `.cursor/rules/verification-workflow.mdc`.
+
+## Quy tắc bất di bất dịch
+
+1. **Mọi thay đổi đều phải qua PR.** Không commit thẳng vào `develop`/`main`. Tạo nhánh mới từ `develop` **trước khi sửa file đầu tiên** → code → commit → push → mở PR vào `develop`.
+2. **`main` do chủ repo quản lý.** Không merge vào `main`. PR `develop → main` chỉ chủ repo tự thực hiện khi release.
+3. **Làm tuần tự theo roadmap ở `docs/DESIGN.md` mục 7.** Mỗi Phase chia nhỏ theo `verification-workflow.mdc` (1 field type / 1 adapter / 1 hàm mỗi task).
+4. **Trước khi viết code mới, kiểm tra `src/matcher.js`/`src/filler.js`** xem đã có helper phù hợp chưa (`setNativeValue`, `detectDateRole`, `fillSplitNumber`, `buildContext`, `classifyField`) — đừng viết trùng.
+5. **Khi kiến trúc/thiết kế thay đổi: sửa `docs/DESIGN.md`**, không sửa file này. Convention/tooling thay đổi thì cập nhật `.cursor/rules/*` **và** `.claude/rules/*` (2 nơi cần đồng bộ tay).
+6. **Mọi thay đổi đụng DOM/form-filling bắt buộc verify bằng Chrome MCP** cả trước lẫn sau khi fix — xem `verification-workflow.mdc`.
+7. **Sau khi plan được duyệt, chạy hết một task nhỏ không tự dừng hỏi giữa chừng** trừ khi có quyết định thiết kế/rủi ro thật cần user.
+
+## Phiên làm việc tự động
+
+1. **Thực thi liên tục tới hết 1 task nhỏ đã duyệt.** Không dừng giữa chừng để hỏi các quyết định implementation nhỏ (đặt tên, cấu trúc file) — tự quyết theo best judgement và rule đã có. Nhưng **vẫn dừng lại sau mỗi task nhỏ để verify bằng Chrome MCP** trước khi mở task tiếp theo.
+2. **Có câu hỏi thật (ambiguity thiết kế, field mapping không rõ, hành vi ATS chưa xác nhận) → hỏi ngay lúc phát sinh**, không đợi tới cuối phiên mới hỏi dồn.
+3. **Cuối mỗi task**, nếu đã verify Chrome MCP thành công: cập nhật `docs/DESIGN.md` mục roadmap nếu cần.
+
+## Nợ kỹ thuật
+
+Mỗi khoản nợ ghi đủ ba phần: **Triệu chứng** (hành vi sai người dùng thấy) — **Nguyên nhân** (`file:line`) — **Điều kiện kích hoạt** (khi nào thành lỗi thật). Ghi ngay lúc phát hiện vào `docs/DESIGN.md`, xoá khi sửa xong trong cùng commit.

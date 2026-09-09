@@ -1,0 +1,40 @@
+---
+description: Quy trình TDD Red-Green-Refactor cho matcher.js/filler.js/adapters — 2 lớp test (jsdom + Chrome MCP)
+alwaysApply: true
+---
+
+# TDD (Red → Green → Refactor)
+
+> Bản mirror của `.claude/rules/tdd.md` cho Cursor — 2 file phải giữ đồng bộ nội dung.
+
+Bắt buộc cho mọi feature/fix trong `matcher.js`, `filler.js`, `adapters/*`:
+
+1. **RED** — viết test fail trước, chưa viết implementation. Test đặt ở `test/matcher.test.js`, `test/filler.test.js`. Xác nhận thấy đỏ đúng nghĩa (assertion fail, không phải lỗi import/cấu hình).
+2. **GREEN** — code tối thiểu để pass, không thêm logic chưa có test bao phủ.
+3. **REFACTOR** — cải thiện code, chạy lại toàn bộ test, không được break.
+4. **VERIFY THẬT** — jsdom pass không phải điều kiện đủ. Với thay đổi đụng DOM/adapter, tiếp tục Chrome MCP verify theo `verification-workflow.mdc` trước khi coi task xong.
+
+```bash
+npm test              # test jsdom/Node — matcher.js, filler.js (pure function, không cần browser)
+npm run test:watch
+```
+
+> Lệnh cụ thể chốt khi setup `package.json` ở Phase 1.
+
+## Hai lớp test — không thay thế nhau
+
+- **Unit (jsdom/Node)** — `classifyField`, `buildContext`, `detectDateRole`, `fillSplitNumber`, `stripExample` là pure function (string in → key out), test trực tiếp bằng Node. Hàm cần DOM giả (`setNativeValue`, adapter fill) dùng jsdom. Nhanh, chạy trong CI.
+- **Chrome MCP (trang thật)** — bắt lớp lỗi jsdom không thể: React/Vue có nhận state thật không, combobox custom mở/chọn được không, Shadow DOM/iframe thật traverse được không, ATS thật có đổi cấu trúc so với lúc viết adapter không. Bắt buộc cho mọi PR đụng DOM/form-filling.
+
+## Case bắt buộc có test cho `classifyField`
+
+- Text mẫu "VD: Nguyễn Văn A" cạnh field không được làm sai lệch phân loại (`stripExample`).
+- Compound word chứa field key làm substring (VD "company name" chứa "name") không bị nhận nhầm — test âm trả `null`/key khác.
+- Case cụ thể hơn phải thắng case tổng quát hơn khi cả hai cùng match (test thứ tự ưu tiên regex).
+- Field nhạy cảm (SSN, DOB chi tiết, passport...) phải trả `null`/bị block, không match vào field key nào.
+
+## Quy ước test
+
+- Mọi case đã từng gây misclassification trên form thật phải được thêm làm regression test — không xoá test cũ khi sửa bug mới, chỉ thêm.
+- Assertion cụ thể theo hành vi, không `toBeTruthy()` mơ hồ.
+- Không `test.skip` mà không giải thích lý do.

@@ -1,0 +1,62 @@
+---
+description: Git flow, PR template, commit message convention cho dự án extension autofill
+alwaysApply: true
+---
+
+# Developer Guide — Git Flow, PR, Commit
+
+> Bản mirror của `.claude/rules/developer-guide.md` cho Cursor — 2 file phải giữ đồng bộ nội dung.
+
+## Git Flow
+
+`develop ← <type>/<mô-tả> (PR)`, `main ← develop (PR, chỉ chủ repo merge)`. Không bao giờ push thẳng lên `develop` hay `main`.
+
+Tạo nhánh mới từ `develop` **trước khi sửa file đầu tiên**:
+
+```bash
+git fetch origin develop
+git checkout -b <type>/<mô-tả-kebab-case> origin/develop
+```
+
+Nhiều task/phiên chạy song song trên cùng máy thì dùng `git worktree add ../<tên> -b <type>/<mô-tả> develop` để mỗi task có 1 thư mục vật lý riêng.
+
+**Branch types:** `feature/`, `fix/`, `test/`, `docs/`, `chore/`. Chữ thường, phân tách bằng `-`, mô tả cụ thể phạm vi.
+
+Nhánh theo Phase trong `docs/DESIGN.md` mục 7 dùng `feature/phase-<n>-<tên-ngắn>` (VD `feature/phase-2-greenhouse-adapter`).
+
+## Điều kiện merge vào `develop`
+
+- Unit test jsdom pass.
+- **Đã verify bằng Chrome MCP** theo `verification-workflow.mdc` cho mọi thay đổi đụng DOM/adapter — ghi rõ kết quả trong PR description.
+- Không commit secrets/API key AI.
+
+Merge vào `develop` dùng **squash**. PR release `develop → main` dùng **merge commit**, không squash.
+
+## PR
+
+Target mặc định là `develop`. Title `<type>: <mô tả ngắn>` (< 72 ký tự).
+
+```markdown
+## Summary
+- <thay đổi chính>
+- <lý do / tác động>
+
+## Test plan
+- [ ] Test jsdom mới thêm/cập nhật (TDD: RED → GREEN)
+- [ ] Verify bằng Chrome MCP: <trang nào, thao tác gì, kết quả gì>
+- [ ] Không commit `.env`, API key, profile data thật
+```
+
+## Commit messages
+
+Imperative mood: `add`, `fix`, `update`, `remove`, `refactor`, `test`, `docs`, `chore`.
+
+```
+add classifyField regex for email2 pattern
+fix native setter not dispatching change event on select
+test add jsdom coverage for detectDateRole edge cases
+```
+
+Không dùng: `fix bug`, `update code`, `WIP`, thời quá khứ (`Fixed login`).
+
+**Không bao giờ commit:** `.env`/credential/API key AI, `node_modules/`, profile/resume data thật, file `.crx`/code trích xuất từ extension bên thứ 3 (rủi ro bản quyền).

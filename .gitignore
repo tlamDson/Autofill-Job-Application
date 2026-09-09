@@ -1,0 +1,36 @@
+# Node
+node_modules/
+dist/
+build/
+
+# Environment / secrets
+.env
+.env.local
+.env.*.local
+*.key
+
+# Chrome extension build output
+*.crx
+*.pem
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/settings.json
+*.swp
+*.swo
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Profile / resume data thật (không commit)
+*.pdf
+profile-backup*.json

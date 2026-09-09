@@ -1,0 +1,26 @@
+---
+description: Bắt buộc verify code DOM/form-filling bằng Chrome MCP trên trang thật, và chia nhỏ task theo context window hạn chế
+alwaysApply: true
+---
+
+# Verify bằng Chrome MCP — không tin code chưa chạy thật
+
+Mọi logic liên quan đến DOM/form-filling (`matcher.js`, `filler.js`, `adapters/*`, bất kỳ code chạy trong content/injected script) **không được coi là "xong" chỉ vì đọc code thấy đúng logic hoặc unit test jsdom pass**. Unit test/jsdom chỉ là điều kiện cần, không phải điều kiện đủ.
+
+## Quy trình bắt buộc trước khi báo "hoàn thành" 1 task
+
+1. Viết/sửa code.
+2. Chạy unit test (jsdom) trước — bắt lỗi rẻ và nhanh.
+3. Dùng **Chrome MCP** (`cursor-ide-browser`) để verify trên trang thật (hoặc `test/*.html` mẫu mở qua `file://`):
+   - `browser_navigate` tới trang cần test.
+   - `browser_cdp` với `Runtime.evaluate` để chạy trực tiếp hàm vừa viết (`classifyField`, `setNativeValue`, adapter fill...) trên DOM thật, HOẶC trigger flow thật qua `browser_click`/`browser_fill`.
+   - `browser_snapshot` để xác nhận field đã nhận đúng giá trị (không chỉ nhìn "có chữ trong ô" — phải chắc React/Vue state cũng nhận, submit thử nếu cần).
+   - `browser_take_screenshot` khi cần bằng chứng hình ảnh.
+4. Chỉ đánh dấu task hoàn thành sau khi có kết quả verify thực tế từ Chrome MCP.
+5. Nếu Chrome MCP lỗi/không khả dụng, hoặc trang yêu cầu đăng nhập/chặn tự động hóa → phải nói rõ **chưa verify được**, không suy diễn là đã đúng.
+
+## Chia nhỏ task vì context window hạn chế
+
+- Không gộp nhiều thay đổi lớn rồi mới verify 1 lần. Mỗi task giới hạn ở **1 đơn vị nhỏ** (1 field type, 1 adapter cho 1 ATS, 1 hàm trong `matcher.js`/`filler.js`).
+- Theo roadmap ở `docs/DESIGN.md`: mỗi Phase phải được chia thành các task con độc lập (dùng `TodoWrite`), verify xong task nào thì đóng task đó (Chrome MCP) trước khi mở task kế tiếp — không cộng dồn nhiều task chưa verify.
+- Khi 1 task đủ nhỏ để tự tin verify nhanh bằng Chrome MCP, đó là dấu hiệu chia task đúng cỡ.
