@@ -9,6 +9,10 @@ import { renderPersonal } from './sections/personal.js';
 import { renderLinks } from './sections/links.js';
 import { renderEducation } from './sections/education.js';
 import { renderWorkHistory } from './sections/workHistory.js';
+import { renderWorkAuth } from './sections/workAuth.js';
+import { renderEEO } from './sections/eeo.js';
+import { renderCompensation } from './sections/compensation.js';
+import { renderSkills } from './sections/skills.js';
 
 const app = document.getElementById('app');
 
@@ -27,6 +31,10 @@ async function init() {
   renderLinks(app, profile, onSave);
   renderEducation(app, profile, onSave);
   renderWorkHistory(app, profile, onSave);
+  renderWorkAuth(app, profile, onSave);
+  renderEEO(app, profile, onSave);
+  renderCompensation(app, profile, onSave);
+  renderSkills(app, profile, onSave);
   // P0.6: workAuth, eeo, compensation, skills
   // P0.7: resume files
   // P0.8: import/export
