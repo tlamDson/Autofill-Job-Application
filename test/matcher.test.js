@@ -1,7 +1,19 @@
 // matcher.test.js — Tests for matcher.js (stripExample, buildContext, classifyField)
 // TDD: tests are added incrementally per P1.x task.
-import { describe, it, expect } from 'vitest';
-import { stripExample } from '../src/matcher.js';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { readFileSync } from 'fs';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
+import { JSDOM } from 'jsdom';
+import { stripExample, buildContext } from '../src/matcher.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+function loadFixture(name) {
+  const html = readFileSync(resolve(__dirname, 'fixtures', name), 'utf8');
+  const dom = new JSDOM(html);
+  return dom.window.document;
+}
 
 // ─── P1.1 — stripExample ─────────────────────────────────────────────────────
 
@@ -77,5 +89,88 @@ describe('stripExample', () => {
 
   it('returns empty string for pure example text with no label', () => {
     expect(stripExample('e.g. https://linkedin.com/in/yourname').trim()).toBe('');
+  });
+});
+
+// ─── P1.2 — buildContext ─────────────────────────────────────────────────────
+
+describe('buildContext', () => {
+  let doc;
+  beforeEach(() => {
+    doc = loadFixture('sample-form.html');
+  });
+
+  it('picks up label[for] text', () => {
+    const input = doc.getElementById('first-name');
+    const ctx = buildContext(input);
+    const text = [ctx.labelText, ...Object.values(ctx.attrs)].join(' ').toLowerCase();
+    expect(text).toContain('first name');
+  });
+
+  it('picks up wrapping <label> text', () => {
+    const input = doc.querySelector('[name="linkedin"]');
+    const ctx = buildContext(input);
+    const text = [ctx.labelText, ctx.nearbyText].join(' ').toLowerCase();
+    expect(text).toContain('linkedin');
+  });
+
+  it('picks up aria-label attribute', () => {
+    const input = doc.querySelector('[name="linkedin"]');
+    const ctx = buildContext(input);
+    expect(ctx.attrs['aria-label']).toContain('LinkedIn');
+  });
+
+  it('picks up aria-labelledby referenced text', () => {
+    const input = doc.querySelector('[name="company"]');
+    const ctx = buildContext(input);
+    const text = [ctx.labelText, ctx.nearbyText].join(' ').toLowerCase();
+    expect(text).toContain('company');
+  });
+
+  it('picks up <th> ancestor text (table layout)', () => {
+    const input = doc.querySelector('[name="city"]');
+    const ctx = buildContext(input);
+    const all = [ctx.labelText, ctx.nearbyText, ...Object.values(ctx.attrs)].join(' ').toLowerCase();
+    expect(all).toContain('city');
+  });
+
+  it('picks up <dt> sibling text (dl layout)', () => {
+    const input = doc.querySelector('[name="postal_code"]');
+    const ctx = buildContext(input);
+    const all = [ctx.labelText, ctx.nearbyText, ...Object.values(ctx.attrs)].join(' ').toLowerCase();
+    expect(all).toContain('postal');
+  });
+
+  it('picks up sibling span text', () => {
+    const input = doc.querySelector('[name="school"]');
+    const ctx = buildContext(input);
+    const all = [ctx.labelText, ctx.nearbyText].join(' ').toLowerCase();
+    expect(all).toContain('school');
+  });
+
+  it('picks up placeholder when no label present', () => {
+    const input = doc.querySelector('[name="job_title"]');
+    const ctx = buildContext(input);
+    expect(ctx.attrs['placeholder']).toBe('Job Title');
+  });
+
+  it('picks up autocomplete attribute', () => {
+    const input = doc.getElementById('email');
+    const ctx = buildContext(input);
+    expect(ctx.attrs['autocomplete']).toBe('email');
+  });
+
+  it('picks up name attribute', () => {
+    const input = doc.getElementById('last-name');
+    const ctx = buildContext(input);
+    expect(ctx.attrs['name']).toContain('last');
+  });
+
+  it('returns { attrs, labelText, nearbyText } shape', () => {
+    const input = doc.getElementById('email');
+    const ctx = buildContext(input);
+    expect(ctx).toHaveProperty('attrs');
+    expect(ctx).toHaveProperty('labelText');
+    expect(ctx).toHaveProperty('nearbyText');
   });
 });

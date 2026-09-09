@@ -82,7 +82,118 @@ export function stripExample(text) {
 }
 
 // ─── P1.2 — buildContext ─────────────────────────────────────────────────────
-// (to be added in P1.2)
+
+/**
+ * Relevant HTML attributes to collect from an input element.
+ */
+const CONTEXT_ATTRS = ['name', 'id', 'placeholder', 'aria-label', 'autocomplete', 'title', 'type'];
+
+/**
+ * Build context object for a form field element.
+ * Collects: HTML attributes, associated label text, nearby text (th/dt/sibling spans).
+ *
+ * @param {HTMLElement} el - The input/select/textarea element
+ * @returns {{ attrs: Record<string,string>, labelText: string, nearbyText: string }}
+ */
+export function buildContext(el) {
+  const attrs = {};
+  for (const attr of CONTEXT_ATTRS) {
+    const val = el.getAttribute(attr);
+    if (val) attrs[attr] = val;
+  }
+
+  let labelText = '';
+  let nearbyText = '';
+
+  const doc = el.ownerDocument;
+
+  // 1. label[for=id]
+  if (el.id) {
+    // Use attribute selector with double quotes; escape only double-quotes in id
+    const escapedId = el.id.replace(/"/g, '\\"');
+    const label = doc.querySelector(`label[for="${escapedId}"]`);
+    if (label) {
+      labelText = label.textContent.trim();
+    }
+  }
+
+  // 2. Wrapping <label>
+  if (!labelText) {
+    let ancestor = el.parentElement;
+    while (ancestor) {
+      if (ancestor.tagName === 'LABEL') {
+        // Get label text minus the input's own text
+        const clone = ancestor.cloneNode(true);
+        // Remove any nested inputs to get just the label text
+        clone.querySelectorAll('input,select,textarea').forEach((n) => n.remove());
+        labelText = clone.textContent.trim();
+        break;
+      }
+      // Stop at form-level boundaries
+      if (['FORM', 'FIELDSET', 'BODY'].includes(ancestor.tagName)) break;
+      ancestor = ancestor.parentElement;
+    }
+  }
+
+  // 3. aria-labelledby
+  if (!labelText && el.hasAttribute('aria-labelledby')) {
+    const ids = el.getAttribute('aria-labelledby').split(/\s+/);
+    const parts = ids.map((id) => doc.getElementById(id)?.textContent?.trim()).filter(Boolean);
+    if (parts.length) labelText = parts.join(' ');
+  }
+
+  // 4. Scan ancestors for nearby text: <th>, <dt>, sibling span/text
+  if (!nearbyText) {
+    nearbyText = _findNearbyText(el);
+  }
+
+  return { attrs, labelText, nearbyText };
+}
+
+/**
+ * Walk up the DOM (max 5 levels) looking for:
+ *   - <th> in the same row
+ *   - <dt> sibling in a dl
+ *   - sibling text/span before the input
+ * @param {HTMLElement} el
+ * @returns {string}
+ */
+function _findNearbyText(el) {
+  let node = el;
+  for (let depth = 0; depth < 5; depth++) {
+    const parent = node.parentElement;
+    if (!parent) break;
+
+    // <th> in same <tr>
+    if (parent.tagName === 'TR' || parent.tagName === 'TD') {
+      const row = parent.closest('tr');
+      if (row) {
+        const ths = row.querySelectorAll('th');
+        if (ths.length) return ths[0].textContent.trim();
+      }
+    }
+
+    // <dt> sibling (dl layout)
+    if (parent.tagName === 'DD') {
+      const dt = parent.previousElementSibling;
+      if (dt && dt.tagName === 'DT') return dt.textContent.trim();
+    }
+
+    // Sibling span/text before the input
+    const sibs = Array.from(parent.children);
+    const myIdx = sibs.indexOf(node);
+    for (let i = myIdx - 1; i >= 0; i--) {
+      const sib = sibs[i];
+      if (!['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON'].includes(sib.tagName)) {
+        const text = sib.textContent.trim();
+        if (text) return text;
+      }
+    }
+
+    node = parent;
+  }
+  return '';
+}
 
 // ─── P1.3+ — classifyField ───────────────────────────────────────────────────
 // (to be added in P1.3+)
