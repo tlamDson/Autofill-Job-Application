@@ -218,6 +218,60 @@ function _findNearbyText(el) {
 
 // ─── P1.3+ — classifyField ───────────────────────────────────────────────────
 
+// ─── P1.8 — Sensitive blocklist + isFillable ─────────────────────────────────
+
+const SENSITIVE_PATTERNS = [
+  /\bssn\b|social\s*security/i,
+  /\bpassport\s*(number|no\.?|#)\b|passport\b.*\bnumber\b/i,
+  /date\s*of\s*birth|\bdob\b|\bbirthday\b/i,
+  /mother.?s\s*maiden|maiden\s*name/i,
+  /routing\s*number|bank\s*routing/i,
+  /account\s*number|bank\s*account/i,
+  /\bpin\b|\bpassword\b|\bsecret\s*question\b/i,
+  /tax\s*id|tin\b|ein\b/i,
+];
+
+/**
+ * Check if a field context should be blocked (sensitive data).
+ * Called BEFORE classifyField — if true, classifyField returns null.
+ * @param {{ attrs: object, labelText: string, nearbyText: string }} ctx
+ * @returns {boolean}
+ */
+export function isSensitiveField(ctx) {
+  const t = _ctxText(ctx);
+  const n = ctx.attrs.name || '';
+  return SENSITIVE_PATTERNS.some((re) => re.test(t) || re.test(n));
+}
+
+/**
+ * Check if a DOM element should be filled.
+ * Returns false for: display:none, visibility:hidden, size=0, disabled, readonly,
+ * or honeypot-named fields.
+ * @param {HTMLElement} el
+ * @returns {boolean}
+ */
+export function isFillable(el) {
+  if (!el) return false;
+  if (el.disabled) return false;
+  if (el.readOnly) return false;
+
+  const style = el.style;
+  if (style.display === 'none') return false;
+  if (style.visibility === 'hidden') return false;
+
+  // Zero-size honeypot
+  const w = parseFloat(style.width);
+  const h = parseFloat(style.height);
+  if (!isNaN(w) && w === 0) return false;
+  if (!isNaN(h) && h === 0) return false;
+
+  // Honeypot name patterns
+  const name = (el.name || '').toLowerCase();
+  if (/\btrap\b|honeypot|hp_|_hp\b/.test(name)) return false;
+
+  return true;
+}
+
 /**
  * Build a combined text string from context for regex matching.
  * @param {{ attrs: object, labelText: string, nearbyText: string }} ctx
@@ -606,6 +660,8 @@ const CLASSIFY_RULES = [
  * @returns {string|null} profile key or null if unrecognized
  */
 export function classifyField(ctx) {
+  // Block sensitive fields first
+  if (isSensitiveField(ctx)) return null;
   for (const rule of CLASSIFY_RULES) {
     if (rule.test(ctx)) return rule.key;
   }
