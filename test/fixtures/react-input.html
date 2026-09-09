@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>React Input Fixture</title>
+</head>
+<body>
+<h2>React-like controlled input fixture</h2>
+<p>This page simulates a React controlled component by overriding the
+   <code>value</code> property with an own descriptor (as React does in production).
+   setNativeValue should bypass this and fire events.</p>
+
+<label for="first-name">First Name</label>
+<input id="first-name" type="text" placeholder="First Name" />
+
+<label for="email">Email</label>
+<input id="email" type="email" placeholder="Email" />
+
+<div id="log" style="margin-top:1em;font-family:monospace;white-space:pre"></div>
+
+<script>
+(function () {
+  // Simulate React-controlled: own property setter records calls but
+  // can be bypassed via prototype.
+  const log = document.getElementById('log');
+  function appendLog(msg) { log.textContent += msg + '\n'; }
+
+  ['first-name', 'email'].forEach(function (id) {
+    const el = document.getElementById(id);
+    let _v = el.value;
+
+    // React-style: hijack own property
+    Object.defineProperty(el, '_reactOwn', { value: true });
+
+    el.addEventListener('input', function () {
+      appendLog('[input event] ' + id + ' => ' + el.value);
+    });
+    el.addEventListener('change', function () {
+      appendLog('[change event] ' + id + ' => ' + el.value);
+    });
+  });
+
+  appendLog('Fixture ready. Call setNativeValue via browser_cdp Runtime.evaluate.');
+})();
+</script>
+</body>
+</html>
