@@ -325,3 +325,46 @@ describe('classifyField — address group', () => {
     expect(classifyField(ctx('Country Code', { name: 'phone_country_code' }))).toBe('phoneCountryCode');
   });
 });
+
+// ─── P1.5 — classifyField: links group ───────────────────────────────────────
+
+describe('classifyField — links group', () => {
+  it('classifies "LinkedIn URL" as linkedin', () => {
+    expect(classifyField(ctx('LinkedIn URL'))).toBe('linkedin');
+  });
+  it('classifies name=linkedin as linkedin', () => {
+    expect(classifyField(ctx('', { name: 'linkedin' }))).toBe('linkedin');
+  });
+  it('classifies "LinkedIn Profile" as linkedin', () => {
+    expect(classifyField(ctx('LinkedIn Profile'))).toBe('linkedin');
+  });
+
+  it('classifies "GitHub URL" as github', () => {
+    expect(classifyField(ctx('GitHub URL'))).toBe('github');
+  });
+  it('classifies name=github_url as github', () => {
+    expect(classifyField(ctx('', { name: 'github_url' }))).toBe('github');
+  });
+
+  it('classifies "Portfolio URL" as portfolio', () => {
+    expect(classifyField(ctx('Portfolio URL'))).toBe('portfolio');
+  });
+  it('classifies "Portfolio / Work Samples" as portfolio', () => {
+    expect(classifyField(ctx('Portfolio / Work Samples'))).toBe('portfolio');
+  });
+
+  it('classifies "Personal Website" as website', () => {
+    expect(classifyField(ctx('Personal Website'))).toBe('website');
+  });
+  it('classifies "Website URL" as website', () => {
+    expect(classifyField(ctx('Website URL'))).toBe('website');
+  });
+
+  // Negative: "website" in a work history context (company website) → null
+  it('classifies "Company Website" NOT as candidate website', () => {
+    const key = classifyField(ctx('Company Website', { name: 'company_website' }));
+    // Could be 'website' or null — important: MUST NOT cause wrong profile field fill
+    // For now: if "company" context is present, return null
+    expect(key).toBeNull();
+  });
+});
