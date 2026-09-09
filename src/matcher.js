@@ -196,4 +196,122 @@ function _findNearbyText(el) {
 }
 
 // ─── P1.3+ — classifyField ───────────────────────────────────────────────────
-// (to be added in P1.3+)
+
+/**
+ * Build a combined text string from context for regex matching.
+ * @param {{ attrs: object, labelText: string, nearbyText: string }} ctx
+ * @returns {string} lowercase combined text
+ */
+function _ctxText(ctx) {
+  const parts = [
+    ctx.labelText,
+    ctx.nearbyText,
+    ctx.attrs.placeholder || '',
+    ctx.attrs.title || '',
+  ];
+  return parts.join(' ').toLowerCase();
+}
+
+/**
+ * Ordered classify rules. Each rule: { key, test(ctx) → bool }.
+ * Order matters — more specific rules first.
+ */
+const CLASSIFY_RULES = [
+  // ── Identity group (P1.3) ──────────────────────────────────────
+  // preferredName — more specific than firstName
+  {
+    key: 'preferredName',
+    test: (ctx) => {
+      const t = _ctxText(ctx);
+      const n = ctx.attrs.name || '';
+      return /prefer|nickname|known\s*as|goes\s*by/.test(t) ||
+             /prefer|nickname/.test(n);
+    },
+  },
+  // firstName — must NOT match when "company" is in context
+  {
+    key: 'firstName',
+    test: (ctx) => {
+      const t = _ctxText(ctx);
+      const n = ctx.attrs.name || '';
+      const ac = ctx.attrs.autocomplete || '';
+      if (/company|employer|organization|school|university/.test(t)) return false;
+      return /first\s*name|given\s*name|first$/i.test(t) ||
+             /first[_-]?name|given[_-]?name/i.test(n) ||
+             ac === 'given-name';
+    },
+  },
+  // lastName
+  {
+    key: 'lastName',
+    test: (ctx) => {
+      const t = _ctxText(ctx);
+      const n = ctx.attrs.name || '';
+      const ac = ctx.attrs.autocomplete || '';
+      if (/company|employer|organization/.test(t)) return false;
+      return /last\s*name|family\s*name|surname|last$/i.test(t) ||
+             /last[_-]?name|family[_-]?name|surname/i.test(n) ||
+             ac === 'family-name';
+    },
+  },
+  // fullName — only when "full name" or autocomplete=name, NOT when company/school
+  {
+    key: 'fullName',
+    test: (ctx) => {
+      const t = _ctxText(ctx);
+      const n = ctx.attrs.name || '';
+      const ac = ctx.attrs.autocomplete || '';
+      if (/company|employer|organization|school|university|job|position/.test(t)) return false;
+      return /full\s*name|your\s*name\b/i.test(t) ||
+             /\bfull[_-]?name\b/i.test(n) ||
+             ac === 'name';
+    },
+  },
+  // email
+  {
+    key: 'email',
+    test: (ctx) => {
+      const t = _ctxText(ctx);
+      const n = ctx.attrs.name || '';
+      const ac = ctx.attrs.autocomplete || '';
+      const type = ctx.attrs.type || '';
+      return /\bemail\b/.test(t) ||
+             /\bemail\b/i.test(n) ||
+             ac === 'email' ||
+             type === 'email';
+    },
+  },
+  // phone
+  {
+    key: 'phone',
+    test: (ctx) => {
+      const t = _ctxText(ctx);
+      const n = ctx.attrs.name || '';
+      const ac = ctx.attrs.autocomplete || '';
+      const type = ctx.attrs.type || '';
+      // Must have "phone" or "mobile" or "tel" somewhere in context
+      if (!/phone|mobile|telephone|\btel\b/.test(t) &&
+          !/phone|mobile|tel/.test(n) &&
+          ac !== 'tel' && type !== 'tel') return false;
+      // Negative: pure "type" field with no phone context in label AND no phone in name
+      if (/\btype\b/.test(t) &&
+          !/phone|mobile|tel/.test(t.replace(/\btype\b/, '')) &&
+          !/phone|mobile|tel/.test(n)) return false;
+      return true;
+    },
+  },
+];
+
+/**
+ * Classify a form field into a profile key.
+ * Runs CLASSIFY_RULES in order; first match wins.
+ *
+ * @param {{ attrs: Record<string,string>, labelText: string, nearbyText: string }} ctx
+ * @returns {string|null} profile key or null if unrecognized
+ */
+export function classifyField(ctx) {
+  for (const rule of CLASSIFY_RULES) {
+    if (rule.test(ctx)) return rule.key;
+  }
+  return null;
+}
