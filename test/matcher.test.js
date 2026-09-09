@@ -265,3 +265,63 @@ describe('classifyField — identity group', () => {
     expect(classifyField(ctx('Input Type', { name: 'input_type' }))).toBeNull();
   });
 });
+
+// ─── P1.4 — classifyField: address group ─────────────────────────────────────
+
+describe('classifyField — address group', () => {
+  it('classifies "Street Address" as addressLine1', () => {
+    expect(classifyField(ctx('Street Address'))).toBe('addressLine1');
+  });
+  it('classifies "Address Line 1" as addressLine1', () => {
+    expect(classifyField(ctx('Address Line 1'))).toBe('addressLine1');
+  });
+  it('classifies autocomplete=address-line1 as addressLine1', () => {
+    expect(classifyField(ctx('', { autocomplete: 'address-line1' }))).toBe('addressLine1');
+  });
+
+  it('classifies "Address Line 2" as addressLine2', () => {
+    expect(classifyField(ctx('Address Line 2'))).toBe('addressLine2');
+  });
+  it('classifies "Apartment / Suite" as addressLine2', () => {
+    expect(classifyField(ctx('Apartment / Suite'))).toBe('addressLine2');
+  });
+
+  it('classifies "City" as city', () => {
+    expect(classifyField(ctx('City'))).toBe('city');
+  });
+  it('classifies autocomplete=address-level2 as city', () => {
+    expect(classifyField(ctx('', { autocomplete: 'address-level2' }))).toBe('city');
+  });
+
+  it('classifies "State / Province" as state', () => {
+    expect(classifyField(ctx('State / Province'))).toBe('state');
+  });
+  it('classifies "State of residence for tax" still as state', () => {
+    expect(classifyField(ctx('State of residence for tax'))).toBe('state');
+  });
+  it('classifies autocomplete=address-level1 as state', () => {
+    expect(classifyField(ctx('', { autocomplete: 'address-level1' }))).toBe('state');
+  });
+
+  it('classifies "Zip Code" as postalCode', () => {
+    expect(classifyField(ctx('Zip Code'))).toBe('postalCode');
+  });
+  it('classifies "Postal Code" as postalCode', () => {
+    expect(classifyField(ctx('Postal Code'))).toBe('postalCode');
+  });
+  it('classifies autocomplete=postal-code as postalCode', () => {
+    expect(classifyField(ctx('', { autocomplete: 'postal-code' }))).toBe('postalCode');
+  });
+
+  it('classifies "Country" as country', () => {
+    expect(classifyField(ctx('Country'))).toBe('country');
+  });
+  it('classifies autocomplete=country as country', () => {
+    expect(classifyField(ctx('', { autocomplete: 'country' }))).toBe('country');
+  });
+
+  // Negative: "country code" for phone should be phoneCountryCode not country
+  it('classifies "Country Code (phone)" as phoneCountryCode', () => {
+    expect(classifyField(ctx('Country Code', { name: 'phone_country_code' }))).toBe('phoneCountryCode');
+  });
+});

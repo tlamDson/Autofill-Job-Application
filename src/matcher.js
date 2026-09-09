@@ -217,6 +217,93 @@ function _ctxText(ctx) {
  * Order matters — more specific rules first.
  */
 const CLASSIFY_RULES = [
+  // ── Address group (P1.4) — before identity to avoid conflicts ──
+  // phoneCountryCode — before country rule
+  {
+    key: 'phoneCountryCode',
+    test: (ctx) => {
+      const n = ctx.attrs.name || '';
+      const t = _ctxText(ctx);
+      return (/country\s*code/i.test(t) && (/phone|tel|mobile/.test(t) || /phone|tel|mobile/.test(n))) ||
+             /phone[_-]?country[_-]?code|country[_-]?code[_-]?phone/i.test(n);
+    },
+  },
+  // addressLine2 — more specific than addressLine1
+  {
+    key: 'addressLine2',
+    test: (ctx) => {
+      const t = _ctxText(ctx);
+      const n = ctx.attrs.name || '';
+      const ac = ctx.attrs.autocomplete || '';
+      return /address\s*(line\s*)?2|apt\.?|apartment|suite|unit|floor/i.test(t) ||
+             /address[_-]?line[_-]?2|addr2|apt|suite/i.test(n) ||
+             ac === 'address-line2';
+    },
+  },
+  // addressLine1
+  {
+    key: 'addressLine1',
+    test: (ctx) => {
+      const t = _ctxText(ctx);
+      const n = ctx.attrs.name || '';
+      const ac = ctx.attrs.autocomplete || '';
+      // Don't match "email address" or "email confirmation" etc.
+      if (/\bemail\b/.test(t) || (ctx.attrs.type || '') === 'email') return false;
+      return /street\s*address|address\s*(line\s*)?1|\baddress\b/i.test(t) ||
+             /address[_-]?line[_-]?1|addr1|street/i.test(n) ||
+             ac === 'address-line1';
+    },
+  },
+  // city
+  {
+    key: 'city',
+    test: (ctx) => {
+      const t = _ctxText(ctx);
+      const n = ctx.attrs.name || '';
+      const ac = ctx.attrs.autocomplete || '';
+      return /\bcity\b|town|municipality/i.test(t) ||
+             /\bcity\b|town/i.test(n) ||
+             ac === 'address-level2';
+    },
+  },
+  // state
+  {
+    key: 'state',
+    test: (ctx) => {
+      const t = _ctxText(ctx);
+      const n = ctx.attrs.name || '';
+      const ac = ctx.attrs.autocomplete || '';
+      return /\bstate\b|province|region/i.test(t) ||
+             /\bstate\b|province/i.test(n) ||
+             ac === 'address-level1';
+    },
+  },
+  // postalCode
+  {
+    key: 'postalCode',
+    test: (ctx) => {
+      const t = _ctxText(ctx);
+      const n = ctx.attrs.name || '';
+      const ac = ctx.attrs.autocomplete || '';
+      return /postal\s*code|zip\s*code|\bzip\b/i.test(t) ||
+             /postal|zip[_-]?code/i.test(n) ||
+             ac === 'postal-code';
+    },
+  },
+  // country — after phoneCountryCode rule
+  {
+    key: 'country',
+    test: (ctx) => {
+      const t = _ctxText(ctx);
+      const n = ctx.attrs.name || '';
+      const ac = ctx.attrs.autocomplete || '';
+      // Don't match "country code" for phone (handled by phoneCountryCode rule above)
+      if (/country\s*code/i.test(t) && /phone|tel|mobile/.test(t)) return false;
+      return /\bcountry\b/i.test(t) ||
+             /\bcountry\b/i.test(n) ||
+             ac === 'country' || ac === 'country-name';
+    },
+  },
   // ── Identity group (P1.3) ──────────────────────────────────────
   // preferredName — more specific than firstName
   {
