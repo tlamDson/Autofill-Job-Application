@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>Sample Form Fixture</title></head>
+<body>
+<!-- Layout 1: label[for] -->
+<div id="layout-label-for">
+  <label for="first-name">First Name</label>
+  <input id="first-name" name="first_name" type="text" />
+
+  <label for="last-name">Last Name</label>
+  <input id="last-name" name="last_name" type="text" />
+
+  <label for="email">Email Address</label>
+  <input id="email" name="email" type="email" autocomplete="email" />
+
+  <label for="phone">Phone Number</label>
+  <input id="phone" name="phone" type="tel" autocomplete="tel" />
+</div>
+
+<!-- Layout 2: wrapping label (no for) -->
+<div id="layout-wrap">
+  <label>
+    LinkedIn URL
+    <input name="linkedin" type="url" aria-label="LinkedIn profile URL" />
+  </label>
+  <label>
+    GitHub URL
+    <input name="github" type="url" />
+  </label>
+</div>
+
+<!-- Layout 3: table layout (th header) -->
+<table id="layout-table">
+  <tr>
+    <th>City</th>
+    <td><input name="city" type="text" /></td>
+  </tr>
+  <tr>
+    <th>State / Province</th>
+    <td><input name="state" type="text" /></td>
+  </tr>
+</table>
+
+<!-- Layout 4: dl/dt layout -->
+<dl id="layout-dl">
+  <dt>Postal Code</dt>
+  <dd><input name="postal_code" type="text" /></dd>
+  <dt>Country</dt>
+  <dd><input name="country" type="text" autocomplete="country" /></dd>
+</dl>
+
+<!-- Layout 5: div wrapper with sibling text node -->
+<div id="layout-sibling">
+  <div class="field-group">
+    <span class="label-text">School / University</span>
+    <input name="school" type="text" />
+  </div>
+  <div class="field-group">
+    <span class="label-text">Degree</span>
+    <input name="degree" type="text" />
+  </div>
+</div>
+
+<!-- Layout 6: aria-labelledby -->
+<div id="layout-aria">
+  <span id="lbl-company">Company Name</span>
+  <input aria-labelledby="lbl-company" name="company" type="text" />
+</div>
+
+<!-- Layout 7: placeholder only (no label) -->
+<div id="layout-placeholder">
+  <input name="job_title" type="text" placeholder="Job Title" />
+</div>
+</body>
+</html>
