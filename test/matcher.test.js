@@ -368,3 +368,66 @@ describe('classifyField — links group', () => {
     expect(key).toBeNull();
   });
 });
+
+// ─── P1.6 — classifyField: education + workHistory ────────────────────────────
+
+function ctxWithSection(labelText, sectionHint, attrs = {}) {
+  return { labelText, nearbyText: '', attrs, sectionHint };
+}
+
+describe('classifyField — education group', () => {
+  it('classifies "School" in education section as school', () => {
+    expect(classifyField(ctxWithSection('School', 'education'))).toBe('school');
+  });
+  it('classifies "University" as school', () => {
+    expect(classifyField(ctxWithSection('University', 'education'))).toBe('school');
+  });
+  it('classifies "Degree" in education section as degree', () => {
+    expect(classifyField(ctxWithSection('Degree', 'education'))).toBe('degree');
+  });
+  it('classifies "Field of Study" as fieldOfStudy', () => {
+    expect(classifyField(ctxWithSection('Field of Study', 'education'))).toBe('fieldOfStudy');
+  });
+  it('classifies "Major" as fieldOfStudy', () => {
+    expect(classifyField(ctxWithSection('Major', 'education'))).toBe('fieldOfStudy');
+  });
+  it('classifies "GPA" as gpa', () => {
+    expect(classifyField(ctxWithSection('GPA', 'education'))).toBe('gpa');
+  });
+  it('classifies start date in education section as eduStartDate', () => {
+    expect(classifyField(ctxWithSection('Start Date', 'education'))).toBe('eduStartDate');
+  });
+  it('classifies end date in education section as eduEndDate', () => {
+    expect(classifyField(ctxWithSection('End Date', 'education'))).toBe('eduEndDate');
+  });
+  it('classifies graduation date as eduEndDate', () => {
+    expect(classifyField(ctxWithSection('Graduation Date', 'education'))).toBe('eduEndDate');
+  });
+});
+
+describe('classifyField — workHistory group', () => {
+  it('classifies "Company" in work section as company', () => {
+    expect(classifyField(ctxWithSection('Company', 'workHistory'))).toBe('company');
+  });
+  it('classifies "Employer" as company', () => {
+    expect(classifyField(ctxWithSection('Employer', 'workHistory'))).toBe('company');
+  });
+  it('classifies "Job Title" as jobTitle', () => {
+    expect(classifyField(ctxWithSection('Job Title', 'workHistory'))).toBe('jobTitle');
+  });
+  it('classifies "Position" in work section as jobTitle', () => {
+    expect(classifyField(ctxWithSection('Position', 'workHistory'))).toBe('jobTitle');
+  });
+  it('classifies start date in work section as workStartDate', () => {
+    expect(classifyField(ctxWithSection('Start Date', 'workHistory'))).toBe('workStartDate');
+  });
+  it('classifies end date in work section as workEndDate', () => {
+    expect(classifyField(ctxWithSection('End Date', 'workHistory'))).toBe('workEndDate');
+  });
+  it('classifies "Description" in work section as jobDescription', () => {
+    expect(classifyField(ctxWithSection('Description', 'workHistory'))).toBe('jobDescription');
+  });
+  it('classifies "Location" in work section as workLocation', () => {
+    expect(classifyField(ctxWithSection('Location', 'workHistory'))).toBe('workLocation');
+  });
+});
