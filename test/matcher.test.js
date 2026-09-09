@@ -431,3 +431,56 @@ describe('classifyField — workHistory group', () => {
     expect(classifyField(ctxWithSection('Location', 'workHistory'))).toBe('workLocation');
   });
 });
+
+// ─── P1.7 — classifyField: workAuth + eeo + compensation ─────────────────────
+
+describe('classifyField — workAuthorization', () => {
+  it('classifies "Do you need sponsorship?" as needsSponsorship', () => {
+    expect(classifyField(ctx('Do you need sponsorship?'))).toBe('needsSponsorship');
+  });
+  it('classifies "Visa sponsorship required" as needsSponsorship', () => {
+    expect(classifyField(ctx('Visa sponsorship required'))).toBe('needsSponsorship');
+  });
+  it('classifies "Authorized to work in the US?" as authorizedToWork', () => {
+    expect(classifyField(ctx('Are you authorized to work in the US?'))).toBe('authorizedToWork');
+  });
+  it('classifies "Work authorization status" as visaStatus', () => {
+    expect(classifyField(ctx('Work authorization status'))).toBe('visaStatus');
+  });
+  it('classifies "Visa type" as visaStatus', () => {
+    expect(classifyField(ctx('Visa type'))).toBe('visaStatus');
+  });
+});
+
+describe('classifyField — EEO', () => {
+  it('classifies "Gender" as gender', () => {
+    expect(classifyField(ctx('Gender'))).toBe('gender');
+  });
+  it('classifies "Race / Ethnicity" as race', () => {
+    expect(classifyField(ctx('Race / Ethnicity'))).toBe('race');
+  });
+  it('classifies "Veteran status" as veteranStatus', () => {
+    expect(classifyField(ctx('Veteran status'))).toBe('veteranStatus');
+  });
+  it('classifies "Disability status" as disabilityStatus', () => {
+    expect(classifyField(ctx('Disability status'))).toBe('disabilityStatus');
+  });
+  it('classifies "Hispanic or Latino" as hispanicLatino', () => {
+    expect(classifyField(ctx('Hispanic or Latino'))).toBe('hispanicLatino');
+  });
+});
+
+describe('classifyField — compensation', () => {
+  it('classifies "Desired Salary" as desiredSalary', () => {
+    expect(classifyField(ctx('Desired Salary'))).toBe('desiredSalary');
+  });
+  it('classifies "Expected Compensation" as desiredSalary', () => {
+    expect(classifyField(ctx('Expected Compensation'))).toBe('desiredSalary');
+  });
+  it('classifies "Notice Period" as noticePeriod', () => {
+    expect(classifyField(ctx('Notice Period'))).toBe('noticePeriod');
+  });
+  it('classifies "Earliest Start Date" as noticePeriod', () => {
+    expect(classifyField(ctx('Earliest Start Date'))).toBe('noticePeriod');
+  });
+});

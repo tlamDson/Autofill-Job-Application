@@ -325,6 +325,64 @@ const CLASSIFY_RULES = [
              ac === 'country' || ac === 'country-name';
     },
   },
+  // ── WorkAuth group (P1.7) ─────────────────────────────────────
+  {
+    key: 'needsSponsorship',
+    test: (ctx) => {
+      const t = _ctxText(ctx);
+      return /sponsorship|require\s*visa|visa\s*required/i.test(t);
+    },
+  },
+  {
+    key: 'authorizedToWork',
+    test: (ctx) => {
+      const t = _ctxText(ctx);
+      return /authorized?\s*to\s*work|legally\s*authorized|right\s*to\s*work/i.test(t);
+    },
+  },
+  {
+    key: 'visaStatus',
+    test: (ctx) => {
+      const t = _ctxText(ctx);
+      return /\bvisa\b|work\s*authorization\s*status|immigration\s*status/i.test(t);
+    },
+  },
+  // ── EEO group (P1.7) ───────────────────────────────────────────
+  {
+    key: 'hispanicLatino',
+    test: (ctx) => /hispanic|latino/i.test(_ctxText(ctx)),
+  },
+  {
+    key: 'gender',
+    test: (ctx) => /\bgender\b|sex\b/i.test(_ctxText(ctx)),
+  },
+  {
+    key: 'race',
+    test: (ctx) => /\brace\b|ethnicity/i.test(_ctxText(ctx)),
+  },
+  {
+    key: 'veteranStatus',
+    test: (ctx) => /veteran|military\s*status/i.test(_ctxText(ctx)),
+  },
+  {
+    key: 'disabilityStatus',
+    test: (ctx) => /disabilit/i.test(_ctxText(ctx)),
+  },
+  // ── Compensation group (P1.7) ──────────────────────────────────
+  {
+    key: 'noticePeriod',
+    test: (ctx) => {
+      const t = _ctxText(ctx);
+      return /notice\s*period|earliest\s*start\s*date|when\s*can\s*you\s*start/i.test(t);
+    },
+  },
+  {
+    key: 'desiredSalary',
+    test: (ctx) => {
+      const t = _ctxText(ctx);
+      return /desired\s*salary|expected\s*(salary|compensation|pay)|salary\s*expectation/i.test(t);
+    },
+  },
   // ── Education group (P1.6) — sectionHint='education' preferred ─
   {
     key: 'school',
