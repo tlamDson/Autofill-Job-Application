@@ -1,0 +1,9 @@
+/* options.css — Phase 0.4+ sẽ style đầy đủ */
+body {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 24px 16px;
+  font-family: system-ui, sans-serif;
+  font-size: 14px;
+}
+h1 { font-size: 22px; margin-bottom: 24px; }

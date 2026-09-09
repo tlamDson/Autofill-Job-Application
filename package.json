@@ -1,0 +1,16 @@
+{
+  "name": "autofill-job-application",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Chrome MV3 extension to autofill job applications for SWE roles",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "vitest": "^2.0.5",
+    "jsdom": "^24.1.1",
+    "@vitest/coverage-v8": "^2.0.5"
+  }
+}

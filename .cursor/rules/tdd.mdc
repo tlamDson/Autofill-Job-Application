@@ -15,11 +15,11 @@ Bắt buộc cho mọi feature/fix trong `matcher.js`, `filler.js`, `adapters/*`
 4. **VERIFY THẬT** — jsdom pass không phải điều kiện đủ. Với thay đổi đụng DOM/adapter, tiếp tục Chrome MCP verify theo `verification-workflow.mdc` trước khi coi task xong.
 
 ```bash
-npm test              # test jsdom/Node — matcher.js, filler.js (pure function, không cần browser)
-npm run test:watch
+npm test           # vitest run  — chạy 1 lần, dùng cho CI / verify trước commit
+npm run test:watch # vitest      — watch mode, dùng khi đang code
 ```
 
-> Lệnh cụ thể chốt khi setup `package.json` ở Phase 1.
+> Lệnh đã chốt tại P0.1 (chore/project-skeleton). Stack: Vitest 2.x + jsdom, ES modules, cấu hình ở `vite.config.js`.
 
 ## Hai lớp test — không thay thế nhau
 
