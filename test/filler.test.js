@@ -344,6 +344,103 @@ describe('fillCombobox', () => {
   });
 });
 
+// ─── fillCombobox — real React-Select shape ──────────────────────────────────
+//
+// On real React-Select widgets (e.g. Greenhouse's application form),
+// role="combobox" sits directly on the <input>, not on a wrapper <div> with a
+// nested input. buildFillPlan() only ever queries input/select/textarea, so
+// this is in practice the *only* shape that ever reaches fillCombobox outside
+// the wrapper-div tests above. React-Select also commonly portals its menu
+// outside the input's own DOM subtree entirely, rather than nesting it inside
+// a shared container.
+
+describe('fillCombobox — role="combobox" directly on the <input>', () => {
+  // Builds a fixture where the listbox is NOT a descendant of the input —
+  // it's portalled into a sibling container, addressed only via aria-controls,
+  // mirroring how React-Select actually renders.
+  function makePortalledCombobox(options) {
+    const lis = options
+      .map((o, i) => `<li role="option" id="opt-${i}">${o}</li>`)
+      .join('');
+    const doc = makeDoc(`
+      <div class="select__control">
+        <input role="combobox" aria-autocomplete="list" aria-controls="rs-listbox" aria-expanded="false" />
+      </div>
+      <div id="menu-portal"></div>
+    `);
+    const input = doc.querySelector('input[role="combobox"]');
+    // Simulate the menu rendering asynchronously in response to input,
+    // appended to a sibling portal rather than inside the input's container.
+    input.addEventListener('input', () => {
+      const portal = doc.getElementById('menu-portal');
+      if (portal.querySelector('#rs-listbox')) return;
+      const ul = doc.createElement('ul');
+      ul.id = 'rs-listbox';
+      ul.setAttribute('role', 'listbox');
+      ul.innerHTML = lis;
+      portal.appendChild(ul);
+    });
+    return doc;
+  }
+
+  it('fills when the input itself is the combobox container (previously always returned false)', async () => {
+    const doc = makePortalledCombobox(['Massachusetts Institute of Technology', 'Stanford University']);
+    const input = doc.querySelector('input[role="combobox"]');
+
+    const result = await fillCombobox(input, 'Stanford University');
+
+    expect(result).toBe(true);
+    expect(input.value).toBe('Stanford University');
+  });
+
+  it('finds a listbox portalled outside the container via aria-controls', async () => {
+    const doc = makePortalledCombobox(['United States', 'Vietnam', 'Canada']);
+    const input = doc.querySelector('input[role="combobox"]');
+    let clicked = null;
+    doc.addEventListener('click', (e) => {
+      if (e.target.getAttribute?.('role') === 'option') clicked = e.target.textContent;
+    });
+
+    await fillCombobox(input, 'Vietnam');
+
+    expect(clicked).toBe('Vietnam');
+  });
+
+  it('returns false honestly when nothing ever renders — no silent false positive', async () => {
+    const doc = makeDoc('<input role="combobox" aria-autocomplete="list" />');
+    const input = doc.querySelector('input');
+
+    const result = await fillCombobox(input, 'Anything');
+
+    expect(result).toBe(false);
+  });
+
+  it('falls back to keyboard commit when no [role="option"] ever renders via ARIA', async () => {
+    const doc = makeDoc('<input role="combobox" aria-autocomplete="list" />');
+    const input = doc.querySelector('input');
+    // Simulate a virtualized widget that has no ARIA-exposed option list but
+    // does commit a value to the input itself when Enter is pressed.
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') input.value = 'Committed Label';
+    });
+
+    const result = await fillCombobox(input, 'anything');
+
+    expect(result).toBe(true);
+    expect(input.value).toBe('Committed Label');
+  });
+
+  it('keyboard fallback returns false when the input value never changes', async () => {
+    const doc = makeDoc('<input role="combobox" aria-autocomplete="list" />');
+    const input = doc.querySelector('input');
+    // No keydown handler at all — nothing will ever change input.value.
+
+    const result = await fillCombobox(input, 'anything');
+
+    expect(result).toBe(false);
+  });
+});
+
 // ─── P1.13 — attachFileToInput ────────────────────────────────────────────────
 
 describe('attachFileToInput', () => {
