@@ -1,10 +1,6 @@
 # Workflow — hub
 
-> Quy tắc bất di bất dịch + quy ước ghi nợ kỹ thuật. Chi tiết git flow/PR/commit và quy trình
-> test nằm ở 2 file được import bên dưới — sửa ở đó, không lặp lại ở đây.
-
-@.claude/rules/developer-guide.md
-@.claude/rules/tdd.md
+> Quy tắc bất di bất dịch + quy ước ghi nợ kỹ thuật. Chi tiết git flow/PR/commit xem `.claude/rules/developer-guide.md`, quy trình test xem `.claude/rules/tdd.md`.
 
 ## Quy tắc bất di bất dịch
 
