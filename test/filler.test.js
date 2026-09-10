@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { JSDOM } from 'jsdom';
-import { setNativeValue } from '../src/filler.js';
+import { setNativeValue, fillSelect, detectDateRole } from '../src/filler.js';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -106,5 +106,105 @@ describe('setNativeValue (React-style — nativeInputValueSetter override)', () 
     expect(inputFired).toBe(true);
     // Own-property setter was NOT called (we went straight to prototype)
     expect(ownSetterCalled).toBe(false);
+  });
+});
+
+// ─── P1.10 — fillSelect + detectDateRole ─────────────────────────────────────
+
+describe('detectDateRole', () => {
+  it('detects "month" from aria-label', () => {
+    const doc = makeDoc('<select aria-label="Month"></select>');
+    expect(detectDateRole(doc.querySelector('select'))).toBe('month');
+  });
+  it('detects "year" from name', () => {
+    const doc = makeDoc('<select name="birth_year"></select>');
+    expect(detectDateRole(doc.querySelector('select'))).toBe('year');
+  });
+  it('detects "day" from id', () => {
+    const doc = makeDoc('<select id="start_day"></select>');
+    expect(detectDateRole(doc.querySelector('select'))).toBe('day');
+  });
+  it('detects "month" when options contain month names', () => {
+    const doc = makeDoc(`<select>
+      <option value="">--</option>
+      <option value="1">January</option>
+      <option value="2">February</option>
+      <option value="3">March</option>
+    </select>`);
+    expect(detectDateRole(doc.querySelector('select'))).toBe('month');
+  });
+  it('detects "year" when options contain 4-digit years', () => {
+    const doc = makeDoc(`<select>
+      <option value="">--</option>
+      <option value="2020">2020</option>
+      <option value="2021">2021</option>
+      <option value="2022">2022</option>
+    </select>`);
+    expect(detectDateRole(doc.querySelector('select'))).toBe('year');
+  });
+  it('returns null for unrecognized select', () => {
+    const doc = makeDoc('<select name="country"><option value="US">US</option></select>');
+    expect(detectDateRole(doc.querySelector('select'))).toBeNull();
+  });
+});
+
+describe('fillSelect', () => {
+  it('selects option by exact value', () => {
+    const doc = makeDoc(`<select>
+      <option value="">--</option>
+      <option value="US">United States</option>
+      <option value="VN">Vietnam</option>
+    </select>`);
+    const sel = doc.querySelector('select');
+    let changed = false;
+    sel.addEventListener('change', () => (changed = true));
+    fillSelect(sel, 'US');
+    expect(sel.value).toBe('US');
+    expect(changed).toBe(true);
+  });
+
+  it('selects option by case-insensitive text match', () => {
+    const doc = makeDoc(`<select>
+      <option value="">--</option>
+      <option value="yes">Yes</option>
+      <option value="no">No</option>
+    </select>`);
+    const sel = doc.querySelector('select');
+    fillSelect(sel, 'yes');
+    expect(sel.value).toBe('yes');
+  });
+
+  it('selects month option from date string yyyy-mm', () => {
+    const doc = makeDoc(`<select name="start_month">
+      <option value="">--</option>
+      <option value="1">January</option>
+      <option value="2">February</option>
+      <option value="3">March</option>
+    </select>`);
+    const sel = doc.querySelector('select');
+    // Date string "2023-03" → month=3
+    fillSelect(sel, '2023-03');
+    expect(sel.value).toBe('3');
+  });
+
+  it('selects year option from date string yyyy-mm', () => {
+    const doc = makeDoc(`<select name="start_year">
+      <option value="">--</option>
+      <option value="2022">2022</option>
+      <option value="2023">2023</option>
+    </select>`);
+    const sel = doc.querySelector('select');
+    fillSelect(sel, '2023-03');
+    expect(sel.value).toBe('2023');
+  });
+
+  it('does nothing when no matching option', () => {
+    const doc = makeDoc(`<select>
+      <option value="">--</option>
+      <option value="yes">Yes</option>
+    </select>`);
+    const sel = doc.querySelector('select');
+    fillSelect(sel, 'maybe');
+    expect(sel.value).toBe('');
   });
 });
