@@ -117,6 +117,88 @@ export async function fillLeverForm(doc, profile) {
   return { filled, skipped };
 }
 
+// ─── EEO fill ────────────────────────────────────────────────────────────────
+
+const DECLINE_PATTERNS_LEVER = /decline|prefer not|don.?t wish|not to answer/i;
+
+/**
+ * Fill Lever's EEO section (selects with `name="eeo[...]"`).
+ *
+ * @param {Document} doc
+ * @param {object}   profile
+ */
+export async function fillLeverEEO(doc, profile) {
+  const eeo = profile.eeo || {};
+
+  const EEO_MAP = {
+    'eeo[gender]': eeo.gender,
+    'eeo[race]': eeo.race,
+    'eeo[veteran]': eeo.veteranStatus,
+    'eeo[disability]': eeo.disabilityStatus,
+  };
+
+  for (const [selector, rawValue] of Object.entries(EEO_MAP)) {
+    const el = doc.querySelector(`[name="${selector}"]`);
+    if (!el || el.tagName.toLowerCase() !== 'select') continue;
+
+    if (rawValue != null && rawValue !== '') {
+      fillSelect(el, String(rawValue));
+    } else if (rawValue === '') {
+      // Auto-select "decline" option
+      const opts = Array.from(el.options);
+      const declineOpt = opts.find((o) => DECLINE_PATTERNS_LEVER.test(o.text));
+      if (declineOpt) {
+        el.value = declineOpt.value;
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }
+  }
+}
+
+// ─── Card question fill ───────────────────────────────────────────────────────
+
+/**
+ * Fill a single Lever card question field.
+ * A card question is a `<div class="card-field">` containing either:
+ *  - A set of radio inputs (single-choice)
+ *  - A text/textarea input (open-ended)
+ *  - A <select> (single-choice dropdown)
+ *
+ * @param {Element} fieldEl  — the .card-field container
+ * @param {string}  value    — the value to fill
+ */
+export async function fillLeverCardQuestion(fieldEl, value) {
+  if (!fieldEl || value == null) return;
+
+  // Try radio buttons first
+  const radios = Array.from(fieldEl.querySelectorAll('input[type="radio"]'));
+  if (radios.length > 0) {
+    const lower = String(value).toLowerCase();
+    const match =
+      radios.find((r) => r.value === String(value)) ||
+      radios.find((r) => r.value.toLowerCase() === lower) ||
+      radios.find((r) => r.value.toLowerCase().includes(lower));
+    if (match) {
+      match.checked = true;
+      match.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    return;
+  }
+
+  // Try <select>
+  const select = fieldEl.querySelector('select');
+  if (select) {
+    fillSelect(select, String(value));
+    return;
+  }
+
+  // Try text input / textarea
+  const textInput = fieldEl.querySelector('input[type="text"], input[type="number"], textarea');
+  if (textInput) {
+    setNativeValue(textInput, String(value));
+  }
+}
+
 // ─── Resume upload ────────────────────────────────────────────────────────────
 
 /**
