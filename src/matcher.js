@@ -143,7 +143,10 @@ export function buildContext(el) {
   }
 
   // 4. Scan ancestors for nearby text: <th>, <dt>, sibling span/text
-  if (!nearbyText) {
+  // Only when no label was already found — otherwise unrelated nearby DOM
+  // text (e.g. a neighboring "LinkedIn" heading next to a GitHub field)
+  // gets concatenated into _ctxText() and can cause misclassification.
+  if (!labelText) {
     nearbyText = _findNearbyText(el);
   }
 

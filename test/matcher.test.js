@@ -173,6 +173,22 @@ describe('buildContext', () => {
     expect(ctx).toHaveProperty('labelText');
     expect(ctx).toHaveProperty('nearbyText');
   });
+
+  it('does not pollute nearbyText with unrelated sibling text once labelText is found (regression)', () => {
+    // A GitHub field with its own correct wrapping <label>, sitting right after
+    // an unrelated "LinkedIn" span. _findNearbyText's sibling scan would pick up
+    // "LinkedIn" here if it ran — it must not run once labelText is already set.
+    const dom = new JSDOM(`<!DOCTYPE html><html><body>
+      <div>
+        <span>LinkedIn</span>
+        <label>GitHub URL<input name="my_github" type="url" /></label>
+      </div>
+    </body></html>`);
+    const input = dom.window.document.querySelector('input');
+    const ctx = buildContext(input);
+    expect(ctx.labelText.toLowerCase()).toContain('github');
+    expect(ctx.nearbyText).toBe('');
+  });
 });
 
 // ─── P1.3 — classifyField: identity group ─────────────────────────────────────
@@ -366,6 +382,17 @@ describe('classifyField — links group', () => {
     // Could be 'website' or null — important: MUST NOT cause wrong profile field fill
     // For now: if "company" context is present, return null
     expect(key).toBeNull();
+  });
+
+  it('classifies a labeled GitHub field as github even when an unrelated "LinkedIn" sibling sits nearby (regression)', () => {
+    const dom = new JSDOM(`<!DOCTYPE html><html><body>
+      <div>
+        <span>LinkedIn</span>
+        <label>GitHub URL<input name="my_github" type="url" /></label>
+      </div>
+    </body></html>`);
+    const input = dom.window.document.querySelector('input');
+    expect(classifyField(buildContext(input))).toBe('github');
   });
 });
 
