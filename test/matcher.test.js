@@ -605,6 +605,24 @@ describe('classifyField — pronouns', () => {
   });
 });
 
+describe('classifyField — resume upload (file input only)', () => {
+  it('classifies a file input labeled "Resume" as resume', () => {
+    expect(classifyField(ctx('Resume', { type: 'file' }))).toBe('resume');
+  });
+  it('classifies a file input labeled "Resume/CV" as resume', () => {
+    expect(classifyField(ctx('Resume/CV', { type: 'file' }))).toBe('resume');
+  });
+  it('classifies a file input named "resume_upload" with no label text', () => {
+    expect(classifyField(ctx('', { type: 'file', name: 'resume_upload' }))).toBe('resume');
+  });
+  it('does NOT classify a text input labeled "Resume" (must be type=file)', () => {
+    expect(classifyField(ctx('Resume', { type: 'text' }))).not.toBe('resume');
+  });
+  it('does NOT classify a file input labeled "Cover Letter" as resume', () => {
+    expect(classifyField(ctx('Cover Letter', { type: 'file' }))).not.toBe('resume');
+  });
+});
+
 describe('classifyField — termsAgreement (checkbox only)', () => {
   it('classifies a checkbox labeled "I agree to the Terms and Conditions"', () => {
     expect(classifyField(ctx('I agree to the Terms and Conditions', { type: 'checkbox' }))).toBe('termsAgreement');

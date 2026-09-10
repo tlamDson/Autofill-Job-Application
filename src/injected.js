@@ -33,13 +33,18 @@ const MSG_FILL_RESULT = 'FILL_RESULT';
     if (!event.data || event.data.type !== MSG_AUTOFILL_TRIGGER) return;
     if (event.data.source !== '__autofill_content__') return;
 
-    const { requestId, profile, settings } = event.data;
+    const { requestId, profile, settings, resumeFile } = event.data;
 
     try {
       // Dynamic import of the generic adapter (works in bundled output)
       // In development, this file is loaded alongside the bundled adapter.
       const { runGenericFill } = await import('./adapters/generic.js');
-      const result = await runGenericFill(document, profile, settings);
+      // __resumeFile is a runtime-only addition to this clone — the File
+      // crossed the isolated/MAIN world boundary via structured clone
+      // (window.postMessage), not through chrome.storage; it's never part
+      // of the profile object that gets saved back to storage.
+      const profileForFill = resumeFile ? { ...profile, __resumeFile: resumeFile } : profile;
+      const result = await runGenericFill(document, profileForFill, settings);
 
       window.postMessage({
         type: MSG_FILL_RESULT,

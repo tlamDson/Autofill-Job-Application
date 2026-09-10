@@ -388,3 +388,61 @@ describe('runGenericFill — termsAgreement consent checkbox', () => {
     expect(doc.getElementById('bg').checked).toBe(false);
   });
 });
+
+// ─── resume upload ───────────────────────────────────────────────────────────
+
+describe('runGenericFill — resume upload', () => {
+  it('attaches profile.__resumeFile to a matching file input', async () => {
+    const doc = makeDoc(`
+      <label for="resume">Resume</label>
+      <input id="resume" type="file" />
+    `);
+    const file = new File(['%PDF-1.4 hi'], 'my-resume.pdf', { type: 'application/pdf' });
+    const profile = { ...PROFILE, __resumeFile: file };
+
+    const result = await runGenericFill(doc, profile);
+
+    const input = doc.getElementById('resume');
+    expect(input.files.length).toBe(1);
+    expect(input.files[0].name).toBe('my-resume.pdf');
+    expect(result.filled).toBe(1);
+  });
+
+  it('renames the attached file per settings.resumeFileName useMyName', async () => {
+    const doc = makeDoc(`
+      <label for="resume">Resume</label>
+      <input id="resume" type="file" />
+    `);
+    const file = new File(['%PDF-1.4 hi'], 'original-name.pdf', { type: 'application/pdf' });
+    const profile = { ...PROFILE, __resumeFile: file };
+
+    await runGenericFill(doc, profile, { resumeFileName: 'useMyName' });
+
+    expect(doc.getElementById('resume').files[0].name).toBe('Ada_Lovelace_Resume.pdf');
+  });
+
+  it('does not touch the file input when profile.__resumeFile is absent', async () => {
+    const doc = makeDoc(`
+      <label for="resume">Resume</label>
+      <input id="resume" type="file" />
+    `);
+
+    const result = await runGenericFill(doc, PROFILE);
+
+    expect(doc.getElementById('resume').files.length).toBe(0);
+    expect(result.filled).toBe(0);
+  });
+
+  it('does not classify a Cover Letter file input as resume', async () => {
+    const doc = makeDoc(`
+      <label for="cl">Cover Letter</label>
+      <input id="cl" type="file" />
+    `);
+    const file = new File(['%PDF-1.4 hi'], 'my-resume.pdf', { type: 'application/pdf' });
+    const profile = { ...PROFILE, __resumeFile: file };
+
+    await runGenericFill(doc, profile);
+
+    expect(doc.getElementById('cl').files.length).toBe(0);
+  });
+});
