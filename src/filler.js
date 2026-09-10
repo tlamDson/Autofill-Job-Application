@@ -3,7 +3,107 @@
  *
  * These run in the MAIN world (injected.js) and in unit tests (jsdom).
  * No Chrome APIs here — pure DOM manipulation only.
+ *
+ * Exported API:
+ *   setNativeValue(el, value)       — P1.9
+ *   detectDateRole(selectEl)        — P1.10
+ *   fillSelect(selectEl, value)     — P1.10
  */
+
+// ─── P1.10 — detectDateRole + fillSelect ─────────────────────────────────────
+
+const MONTH_NAMES = [
+  'january', 'february', 'march', 'april', 'may', 'june',
+  'july', 'august', 'september', 'october', 'november', 'december',
+];
+
+/**
+ * Determine whether a <select> is a date-part picker: 'month', 'year', or 'day'.
+ * Returns null if not recognisable.
+ *
+ * Strategy:
+ *  1. Check name/id/aria-label attributes for keywords.
+ *  2. Sniff option values/text content.
+ *
+ * @param {HTMLSelectElement} el
+ * @returns {'month'|'year'|'day'|null}
+ */
+export function detectDateRole(el) {
+  const hint = [
+    el.name || '',
+    el.id || '',
+    el.getAttribute('aria-label') || '',
+    el.getAttribute('placeholder') || '',
+  ].join(' ').toLowerCase();
+
+  // Use \b only on word/non-word boundaries; underscores are word chars,
+  // so "birth_year" would not match \byear\b. Use (^|[^a-z]) lookahead instead.
+  if (/(?:^|[^a-z])month(?:[^a-z]|$)/.test(hint)) return 'month';
+  if (/(?:^|[^a-z])year(?:[^a-z]|$)/.test(hint)) return 'year';
+  if (/(?:^|[^a-z])day(?:[^a-z]|$)/.test(hint)) return 'day';
+
+  // Sniff options
+  const optTexts = Array.from(el.options).map((o) => (o.text || '').trim().toLowerCase());
+  const optVals = Array.from(el.options).map((o) => (o.value || '').trim());
+
+  if (optTexts.some((t) => MONTH_NAMES.includes(t))) return 'month';
+  if (optVals.filter((v) => /^\d{4}$/.test(v)).length >= 2) return 'year';
+  if (optVals.filter((v) => /^\d{1,2}$/.test(v) && +v >= 1 && +v <= 31).length >= 10) return 'day';
+
+  return null;
+}
+
+/**
+ * Fill a <select> element.
+ *
+ * Logic:
+ *  1. If value looks like a yyyy-mm date string, detect the role of this
+ *     select (month/year) and extract the appropriate part.
+ *  2. Try to match by option value (exact).
+ *  3. Try to match by option text (case-insensitive).
+ *  4. Try partial text match as last resort.
+ *  5. Dispatch change event on success.
+ *
+ * @param {HTMLSelectElement} el
+ * @param {string} value  — may be a raw value or a "yyyy-mm" date string
+ */
+export function fillSelect(el, value) {
+  const str = String(value).trim();
+
+  // Resolve date-part selects
+  let targetValue = str;
+  const dateMatch = str.match(/^(\d{4})-(\d{2})$/);
+  if (dateMatch) {
+    const role = detectDateRole(el);
+    if (role === 'year') {
+      targetValue = dateMatch[1];
+    } else if (role === 'month') {
+      targetValue = String(parseInt(dateMatch[2], 10)); // strip leading zero
+    }
+    // day role: date strings rarely drive day pickers — pass through as-is
+  }
+
+  // Try exact value match
+  const opts = Array.from(el.options);
+  let match = opts.find((o) => o.value === targetValue);
+
+  // Try case-insensitive text match
+  if (!match) {
+    const lower = targetValue.toLowerCase();
+    match = opts.find((o) => o.text.trim().toLowerCase() === lower);
+  }
+
+  // Try partial text match as last resort
+  if (!match) {
+    const lower = targetValue.toLowerCase();
+    match = opts.find((o) => o.text.trim().toLowerCase().includes(lower));
+  }
+
+  if (!match) return; // no match — leave unchanged
+
+  el.value = match.value;
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+}
 
 // ─── P1.9 — setNativeValue ────────────────────────────────────────────────────
 
