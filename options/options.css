@@ -1,9 +1,129 @@
-/* options.css — Phase 0.4+ sẽ style đầy đủ */
 body {
   max-width: 760px;
   margin: 0 auto;
   padding: 24px 16px;
   font-family: system-ui, sans-serif;
   font-size: 14px;
+  color: #1a1a1a;
 }
-h1 { font-size: 22px; margin-bottom: 24px; }
+h1 { font-size: 22px; margin-bottom: 16px; }
+h2 { font-size: 18px; margin: 24px 0 12px; }
+h3 { font-size: 15px; margin: 20px 0 8px; color: #444; }
+
+/* ─── Tab bar ────────────────────────────────────────────────────────── */
+
+.tab-bar {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid #ddd;
+  margin-bottom: 20px;
+}
+.tab-btn {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #666;
+  cursor: pointer;
+}
+.tab-btn:hover { color: #1a1a1a; }
+.tab-btn.active {
+  color: #2563eb;
+  border-bottom-color: #2563eb;
+}
+
+/* ─── Sections / fields (shared by Profile + Settings) ──────────────── */
+
+.options-section { margin-bottom: 28px; }
+.field-wrapper { margin-bottom: 10px; }
+.field-wrapper label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: #333;
+}
+.field-wrapper input[type="text"],
+.field-wrapper input[type="email"],
+.field-wrapper input[type="tel"],
+.field-wrapper input[type="password"],
+.field-wrapper select {
+  padding: 6px 8px;
+  font-size: 14px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+.field-error { font-size: 12px; }
+
+/* ─── Toggle switch ──────────────────────────────────────────────────── */
+
+input[type="checkbox"][role="switch"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 34px;
+  height: 20px;
+  border-radius: 10px;
+  background: #ccc;
+  position: relative;
+  cursor: pointer;
+  vertical-align: middle;
+  margin: 0;
+  flex: none;
+}
+input[type="checkbox"][role="switch"]::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  transition: left 0.15s ease;
+}
+input[type="checkbox"][role="switch"]:checked {
+  background: #2563eb;
+}
+input[type="checkbox"][role="switch"]:checked::before {
+  left: 16px;
+}
+input[type="checkbox"][role="switch"]:indeterminate {
+  background: #93c5fd;
+}
+
+/* ─── Settings-specific rows ─────────────────────────────────────────── */
+
+.setting-row label {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+
+.field-group {
+  border: 1px solid #e5e5e5;
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+}
+.field-group-header label {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+.field-group-header strong { font-size: 14px; }
+.field-group-list {
+  margin-top: 8px;
+  padding-left: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.field-toggle-row label {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: #555;
+}

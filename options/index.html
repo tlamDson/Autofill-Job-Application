@@ -3,13 +3,18 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Autofill — Profile Settings</title>
+  <title>Autofill — Settings</title>
   <link rel="stylesheet" href="options.css" />
 </head>
 <body>
   <div id="app">
-    <h1>Profile Settings</h1>
-    <p>Phase 0.4 sẽ implement các section đầy đủ.</p>
+    <h1>Autofill</h1>
+    <nav class="tab-bar" id="tab-bar" role="tablist">
+      <button type="button" class="tab-btn" data-tab="profile" role="tab">Profile</button>
+      <button type="button" class="tab-btn" data-tab="settings" role="tab">Settings</button>
+    </nav>
+    <div id="panel-profile" class="tab-panel" data-panel="profile"></div>
+    <div id="panel-settings" class="tab-panel" data-panel="settings" hidden></div>
   </div>
   <script type="module" src="options.js"></script>
 </body>

@@ -17,7 +17,7 @@
 
 // ─── Supported providers ──────────────────────────────────────────────────────
 
-const SUPPORTED_PROVIDERS = new Set(['openai', 'gemini']);
+export const SUPPORTED_PROVIDERS = new Set(['openai', 'gemini']);
 
 const PROVIDER_ENDPOINTS = {
   openai: 'https://api.openai.com/v1/chat/completions',
@@ -25,7 +25,7 @@ const PROVIDER_ENDPOINTS = {
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
 };
 
-const DEFAULT_MODELS = {
+export const DEFAULT_MODELS = {
   openai: 'gpt-4o-mini',
   gemini: 'gemini-2.0-flash',
 };
