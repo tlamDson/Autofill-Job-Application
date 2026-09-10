@@ -105,6 +105,67 @@ export function fillSelect(el, value) {
   el.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
+// ─── P1.12 — fillCombobox ────────────────────────────────────────────────────
+
+/**
+ * Fill a custom aria-combobox widget.
+ *
+ * Strategy:
+ *  1. Find the text input inside the combobox container.
+ *  2. Type the target value into it (triggers input event → listbox should appear).
+ *  3. Wait a tick for the listbox to render.
+ *  4. Find a matching [role="option"] by text (case-insensitive).
+ *  5. Fire mousedown + click on that option.
+ *  6. Return true if an option was matched, false otherwise.
+ *
+ * This is intentionally synchronous-friendly: it uses a minimal setTimeout(0)
+ * to allow the DOM to react to the input event before scanning for options.
+ *
+ * @param {HTMLElement} container  — element with role="combobox"
+ * @param {string}      value      — desired option text
+ * @returns {Promise<boolean>}
+ */
+export async function fillCombobox(container, value) {
+  // Find the text input inside the combobox
+  const input = container.querySelector('input[type="text"], input[aria-autocomplete]') ||
+                container.querySelector('input');
+  if (!input) return false;
+
+  // Type into the input to trigger filtering
+  setNativeValue(input, value);
+
+  // Wait a tick for the listbox to appear
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  // Find the listbox
+  const listbox = container.querySelector('[role="listbox"]') ||
+                  document.getElementById(container.getAttribute('aria-controls') || '') ||
+                  container;
+
+  // Find matching option
+  const lower = value.toLowerCase().trim();
+  const options = Array.from(
+    listbox.querySelectorAll('[role="option"]')
+  );
+
+  // Prefer exact match, then starts-with, then includes
+  let match =
+    options.find((o) => o.textContent.trim().toLowerCase() === lower) ||
+    options.find((o) => o.textContent.trim().toLowerCase().startsWith(lower)) ||
+    options.find((o) => o.textContent.trim().toLowerCase().includes(lower));
+
+  if (!match) return false;
+
+  // Fire mousedown then click (mimics real user interaction)
+  match.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+  match.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+  // Update the input value to the matched option's text
+  setNativeValue(input, match.textContent.trim());
+
+  return true;
+}
+
 // ─── P1.11 — fillSplitNumber ─────────────────────────────────────────────────
 
 /**

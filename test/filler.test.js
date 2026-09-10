@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { JSDOM } from 'jsdom';
-import { setNativeValue, fillSelect, detectDateRole, fillSplitNumber } from '../src/filler.js';
+import { setNativeValue, fillSelect, detectDateRole, fillSplitNumber, fillCombobox } from '../src/filler.js';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -270,5 +270,76 @@ describe('fillSplitNumber', () => {
 
     expect(cc.value).toBe('+84');
     expect(phone.value).toBe('0912345678');
+  });
+});
+
+// ─── P1.12 — fillCombobox ─────────────────────────────────────────────────────
+
+describe('fillCombobox', () => {
+  // Helper to build a typical aria-combobox widget:
+  //   <div role="combobox"> → <input type="text"> + <ul role="listbox"> → <li role="option">
+  function makeCombobox(options, inputAttrs = '') {
+    const lis = options
+      .map((o, i) => `<li role="option" data-value="${o}" id="opt-${i}">${o}</li>`)
+      .join('');
+    return makeDoc(`
+      <div role="combobox" aria-expanded="false" aria-haspopup="listbox">
+        <input type="text" aria-autocomplete="list" ${inputAttrs} />
+        <ul role="listbox" style="display:none">${lis}</ul>
+      </div>
+    `);
+  }
+
+  it('types into the input triggering the listbox', async () => {
+    const doc = makeCombobox(['Software Engineer', 'Product Manager', 'Designer']);
+    const input = doc.querySelector('input');
+    const ul = doc.querySelector('[role="listbox"]');
+
+    // Simulate listbox appearing when input fires
+    input.addEventListener('input', () => {
+      ul.style.display = 'block';
+    });
+
+    const result = await fillCombobox(doc.querySelector('[role="combobox"]'), 'Software Engineer');
+    expect(result).toBe(true);
+    expect(input.value).toBe('Software Engineer');
+  });
+
+  it('clicks the matching listbox option', async () => {
+    const doc = makeCombobox(['United States', 'Vietnam', 'Canada']);
+    const input = doc.querySelector('input');
+    const ul = doc.querySelector('[role="listbox"]');
+    const options = doc.querySelectorAll('[role="option"]');
+
+    let clickedOption = null;
+    options.forEach((opt) => {
+      opt.addEventListener('click', () => { clickedOption = opt.textContent; });
+      opt.addEventListener('mousedown', () => { clickedOption = opt.textContent; });
+    });
+
+    // Show listbox when input changes
+    input.addEventListener('input', () => { ul.style.display = 'block'; });
+
+    await fillCombobox(doc.querySelector('[role="combobox"]'), 'Vietnam');
+
+    // Either click or mousedown should have fired on "Vietnam"
+    expect(clickedOption).toBe('Vietnam');
+  });
+
+  it('returns false when no matching option found', async () => {
+    const doc = makeCombobox(['Option A', 'Option B']);
+    const result = await fillCombobox(doc.querySelector('[role="combobox"]'), 'Option Z');
+    expect(result).toBe(false);
+  });
+
+  it('matches option case-insensitively', async () => {
+    const doc = makeCombobox(['Yes', 'No', 'Prefer not to say']);
+    const input = doc.querySelector('input');
+    const ul = doc.querySelector('[role="listbox"]');
+    input.addEventListener('input', () => { ul.style.display = 'block'; });
+
+    const result = await fillCombobox(doc.querySelector('[role="combobox"]'), 'yes');
+    expect(result).toBe(true);
+    expect(input.value.toLowerCase()).toBe('yes');
   });
 });
