@@ -42,11 +42,12 @@ export function initPopup({ button, statusArea, sendFill }) {
       const result = await sendFill();
       if (result.ok) {
         const noun = result.filled === 1 ? 'field' : 'fields';
-        setStatus(
-          'success',
-          `✓ Filled ${result.filled} ${noun}` +
-            (result.skipped ? ` (${result.skipped} skipped)` : '')
-        );
+        let message = `✓ Filled ${result.filled} ${noun}`;
+        if (result.skipped) message += ` (${result.skipped} skipped)`;
+        if (result.skippedByUser) {
+          message += ` (${result.skippedByUser} field${result.skippedByUser === 1 ? '' : 's'} tắt trong Settings)`;
+        }
+        setStatus('success', message);
       } else {
         setStatus('error', `✗ Error: ${result.error || 'Unknown error'}`);
       }

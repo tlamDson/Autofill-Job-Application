@@ -27,7 +27,7 @@ describe('makeMessageHandler', () => {
 
   it('responds to AUTOFILL_TRIGGER with { ok: true, filled, skipped }', async () => {
     // Mock a filler that returns counts
-    const mockFill = vi.fn().mockResolvedValue({ filled: 3, skipped: 0 });
+    const mockFill = vi.fn().mockResolvedValue({ filled: 3, skipped: 0, skippedByUser: 0 });
     const handler = makeMessageHandler({ runFill: mockFill });
 
     let sentResponse = null;
@@ -50,6 +50,19 @@ describe('makeMessageHandler', () => {
     expect(sentResponse.filled).toBe(3);
     expect(sentResponse.skipped).toBe(0);
     expect(mockFill).toHaveBeenCalledOnce();
+  });
+
+  it('propagates skippedByUser from runFill into the response', async () => {
+    const mockFill = vi.fn().mockResolvedValue({ filled: 2, skipped: 0, skippedByUser: 4 });
+    const handler = makeMessageHandler({ runFill: mockFill });
+
+    let sentResponse = null;
+    const sendResponse = (resp) => { sentResponse = resp; };
+
+    handler({ type: 'AUTOFILL_TRIGGER' }, {}, sendResponse);
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(sentResponse.skippedByUser).toBe(4);
   });
 
   it('returns error response when fill throws', async () => {

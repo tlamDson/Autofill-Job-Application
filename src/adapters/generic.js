@@ -5,13 +5,14 @@
  * Runs in MAIN world (no Chrome APIs).
  *
  * Exported API:
- *   buildFillPlan(document, profile) → Array<{el, key, value}>
+ *   buildFillPlan(document, profile, settings?, stats?) → Array<{el, key, value}>
  *   fillField(el, key, value, document) → Promise<void>
- *   runGenericFill(document, profile) → Promise<{filled: number, skipped: number}>
+ *   runGenericFill(document, profile, settings?) → Promise<{filled, skipped, skippedByUser}>
  */
 
 import { buildContext, classifyField, isFillable } from '../matcher.js';
 import { setNativeValue, fillSelect, fillCombobox } from '../filler.js';
+import { isFieldEnabled } from '../settings/fieldGroups.js';
 
 // ─── Profile value resolution ─────────────────────────────────────────────────
 
@@ -116,10 +117,13 @@ function getProfileValue(key, profile) {
  * Scan all form fields in `document` and produce a fill plan.
  *
  * @param {Document}  doc
- * @param {object}    profile  — normalised user profile
+ * @param {object}    profile   — normalised user profile
+ * @param {object}    [settings] — user settings (disabledFields); all fields enabled if omitted
+ * @param {object}    [stats]    — optional mutable counter object; stats.skippedByUser is
+ *                                 incremented for each classified field skipped by settings
  * @returns {Array<{el: HTMLElement, key: string, value: any}>}
  */
-export function buildFillPlan(doc, profile) {
+export function buildFillPlan(doc, profile, settings = {}, stats) {
   const plan = [];
 
   const inputs = Array.from(
@@ -134,6 +138,11 @@ export function buildFillPlan(doc, profile) {
     const ctx = buildContext(el);
     const key = classifyField(ctx);
     if (!key) continue;
+
+    if (!isFieldEnabled(settings, key)) {
+      if (stats) stats.skippedByUser = (stats.skippedByUser || 0) + 1;
+      continue;
+    }
 
     const value = getProfileValue(key, profile);
     if (value == null || value === '') continue;
@@ -216,10 +225,12 @@ export async function fillField(el, key, value, doc) {
  *
  * @param {Document}  doc
  * @param {object}    profile
- * @returns {Promise<{filled: number, skipped: number}>}
+ * @param {object}    [settings] — user settings (disabledFields); all fields enabled if omitted
+ * @returns {Promise<{filled: number, skipped: number, skippedByUser: number}>}
  */
-export async function runGenericFill(doc, profile) {
-  const plan = buildFillPlan(doc, profile);
+export async function runGenericFill(doc, profile, settings = {}) {
+  const stats = { skippedByUser: 0 };
+  const plan = buildFillPlan(doc, profile, settings, stats);
   let filled = 0;
   let skipped = 0;
 
@@ -233,5 +244,5 @@ export async function runGenericFill(doc, profile) {
     }
   }
 
-  return { filled, skipped };
+  return { filled, skipped, skippedByUser: stats.skippedByUser };
 }
