@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { JSDOM } from 'jsdom';
-import { setNativeValue, fillSelect, detectDateRole, fillSplitNumber, fillCombobox } from '../src/filler.js';
+import { setNativeValue, fillSelect, detectDateRole, fillSplitNumber, fillCombobox, attachFileToInput } from '../src/filler.js';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -341,5 +341,57 @@ describe('fillCombobox', () => {
     const result = await fillCombobox(doc.querySelector('[role="combobox"]'), 'yes');
     expect(result).toBe(true);
     expect(input.value.toLowerCase()).toBe('yes');
+  });
+});
+
+// ─── P1.13 — attachFileToInput ────────────────────────────────────────────────
+
+describe('attachFileToInput', () => {
+  it('attaches a Blob/File to an <input type="file"> via DataTransfer', () => {
+    const doc = makeDoc('<input type="file" accept=".pdf" />');
+    const input = doc.querySelector('input');
+
+    const file = new File(['%PDF-1.4 content'], 'resume.pdf', { type: 'application/pdf' });
+
+    let changeFired = false;
+    input.addEventListener('change', () => (changeFired = true));
+
+    attachFileToInput(input, file);
+
+    // jsdom supports DataTransfer and files property
+    expect(input.files).toBeTruthy();
+    expect(input.files.length).toBe(1);
+    expect(input.files[0].name).toBe('resume.pdf');
+    expect(changeFired).toBe(true);
+  });
+
+  it('fires change event even if DataTransfer is unavailable (polyfill path)', () => {
+    const doc = makeDoc('<input type="file" />');
+    const input = doc.querySelector('input');
+
+    // Simulate environment without DataTransfer support
+    const savedDT = globalThis.DataTransfer;
+    globalThis.DataTransfer = undefined;
+
+    let changeFired = false;
+    input.addEventListener('change', () => (changeFired = true));
+
+    try {
+      attachFileToInput(input, new File(['content'], 'cv.pdf', { type: 'application/pdf' }));
+    } finally {
+      globalThis.DataTransfer = savedDT;
+    }
+
+    // Change should still fire (best-effort)
+    expect(changeFired).toBe(true);
+  });
+
+  it('does nothing if no file provided', () => {
+    const doc = makeDoc('<input type="file" />');
+    const input = doc.querySelector('input');
+    let changeFired = false;
+    input.addEventListener('change', () => (changeFired = true));
+    attachFileToInput(input, null);
+    expect(changeFired).toBe(false);
   });
 });

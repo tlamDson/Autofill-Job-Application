@@ -105,6 +105,66 @@ export function fillSelect(el, value) {
   el.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
+// ─── P1.13 — attachFileToInput ───────────────────────────────────────────────
+
+/**
+ * Attach a File/Blob to an <input type="file"> element.
+ *
+ * Strategy:
+ *  1. Build a DataTransfer, add the file, assign dt.files to input.files.
+ *  2. If DataTransfer is unavailable (extension sandbox), fall back to
+ *     Object.defineProperty to set a minimal FileList-like object.
+ *  3. Dispatch `change` event.
+ *
+ * NOTE: This requires MAIN world execution (injected.js) because content scripts
+ * cannot assign input.files in some browser versions.
+ *
+ * @param {HTMLInputElement} input
+ * @param {File|Blob|null}   file
+ */
+export function attachFileToInput(input, file) {
+  if (!file) return;
+
+  try {
+    if (typeof DataTransfer !== 'undefined') {
+      const dt = new DataTransfer();
+      // DataTransfer.items.add requires a File, not a Blob
+      const f = file instanceof File ? file : new File([file], 'resume.pdf', { type: file.type || 'application/pdf' });
+      dt.items.add(f);
+      // In MAIN world, input.files is assignable via the descriptor
+      const proto = input.constructor?.prototype ?? Object.getPrototypeOf(input);
+      const desc = Object.getOwnPropertyDescriptor(proto, 'files');
+      if (desc && desc.set) {
+        desc.set.call(input, dt.files);
+      } else {
+        input.files = dt.files;
+      }
+    } else {
+      throw new Error('DataTransfer unavailable');
+    }
+  } catch {
+    // Best-effort fallback: define a minimal FileList-like own property
+    const f = file instanceof File ? file : new File([file], 'resume.pdf', { type: file.type || 'application/pdf' });
+    const fakeFileList = {
+      0: f,
+      length: 1,
+      item: (i) => (i === 0 ? f : null),
+      [Symbol.iterator]: function* () { yield f; },
+    };
+    try {
+      Object.defineProperty(input, 'files', {
+        value: fakeFileList,
+        writable: true,
+        configurable: true,
+      });
+    } catch {
+      // Cannot set files — continue to fire event anyway
+    }
+  }
+
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
 // ─── P1.12 — fillCombobox ────────────────────────────────────────────────────
 
 /**
