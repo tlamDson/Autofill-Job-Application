@@ -289,6 +289,87 @@ export async function fillWorkdayRepeatedSection(doc, sectionId, items, fillFn) 
   return { filled: totalFilled, skipped: totalSkipped };
 }
 
+// ─── EEO / Self-Identify step ────────────────────────────────────────────────
+
+const DECLINE_PATTERNS_WD = /decline|prefer not|don.?t wish|not to answer/i;
+
+/**
+ * Fill Workday's "Self Identify" EEO section.
+ * Fields are `<select data-automation-id="gender|race|veteranStatus|disability">`.
+ *
+ * @param {Document} doc
+ * @param {object}   profile
+ */
+export async function fillWorkdayEEO(doc, profile) {
+  const eeo = profile.eeo || {};
+
+  const EEO_MAP = {
+    gender: eeo.gender,
+    race: eeo.race,
+    veteranStatus: eeo.veteranStatus,
+    disability: eeo.disabilityStatus,
+  };
+
+  for (const [automationId, rawValue] of Object.entries(EEO_MAP)) {
+    const el = doc.querySelector(`[data-automation-id="${automationId}"]`);
+    if (!el || el.tagName.toLowerCase() !== 'select') continue;
+
+    if (rawValue != null && rawValue !== '') {
+      fillSelect(el, String(rawValue));
+    } else if (rawValue === '') {
+      // Auto-select "decline" option
+      const opts = Array.from(el.options);
+      const declineOpt = opts.find((o) => DECLINE_PATTERNS_WD.test(o.text));
+      if (declineOpt) {
+        el.value = declineOpt.value;
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }
+  }
+}
+
+// ─── Radio question filler ────────────────────────────────────────────────────
+
+/**
+ * Fill a Workday radio-button question by clicking the matching radio.
+ * Matches by: radio value exact → radio value case-insensitive → label text.
+ *
+ * @param {Element} container  — the question container element
+ * @param {string}  value
+ * @returns {boolean}
+ */
+export function fillWorkdayRadioQuestion(container, value) {
+  if (!container || !value) return false;
+
+  const radios = Array.from(container.querySelectorAll('input[type="radio"]'));
+  if (radios.length === 0) return false;
+
+  const lower = value.toLowerCase();
+
+  // Match by value attribute
+  let match = radios.find((r) => r.value === value) ||
+    radios.find((r) => r.value.toLowerCase() === lower);
+
+  // Match by associated label text
+  if (!match) {
+    const doc = container.ownerDocument;
+    match = radios.find((r) => {
+      const label = r.id ? doc.querySelector(`label[for="${r.id}"]`) : null;
+      if (label) {
+        const labelText = label.textContent.trim().toLowerCase();
+        return labelText === lower || labelText.includes(lower);
+      }
+      return false;
+    });
+  }
+
+  if (!match) return false;
+
+  match.checked = true;
+  match.dispatchEvent(new Event('change', { bubbles: true }));
+  return true;
+}
+
 // ─── Click intercept for Workday resume upload ───────────────────────────────
 
 /**
