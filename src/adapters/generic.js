@@ -20,23 +20,23 @@ import { setNativeValue, fillSelect, fillCombobox } from '../filler.js';
  * Simple keys map directly; list keys (education, workHistory) default to [0].
  */
 const KEY_TO_PROFILE_PATH = {
-  firstName: 'firstName',
-  lastName: 'lastName',
+  firstName: 'personal.firstName',
+  lastName: 'personal.lastName',
   fullName: '__computed_fullName',
-  preferredName: 'preferredName',
-  email: 'email',
-  phone: 'phone',
+  preferredName: 'personal.preferredName',
+  email: 'personal.email',
+  phone: 'personal.phone',
   phoneCountryCode: '__computed_phoneCountryCode',
-  addressLine1: 'address.line1',
-  addressLine2: 'address.line2',
-  city: 'address.city',
-  state: 'address.state',
-  postalCode: 'address.postalCode',
-  country: 'address.country',
-  linkedinUrl: 'links.linkedin',
-  githubUrl: 'links.github',
-  portfolioUrl: 'links.portfolio',
-  websiteUrl: 'links.website',
+  addressLine1: 'personal.address.line1',
+  addressLine2: 'personal.address.line2',
+  city: 'personal.address.city',
+  state: 'personal.address.state',
+  postalCode: 'personal.address.postalCode',
+  country: 'personal.address.country',
+  linkedin: 'links.linkedin',
+  github: 'links.github',
+  portfolio: 'links.portfolio',
+  website: 'links.website',
   // Education [0]
   school: 'education.0.school',
   degree: 'education.0.degree',
@@ -46,15 +46,15 @@ const KEY_TO_PROFILE_PATH = {
   eduEndDate: 'education.0.endDate',
   // Work history [0]
   company: 'workHistory.0.company',
-  jobTitle: 'workHistory.0.jobTitle',
+  jobTitle: 'workHistory.0.title',
   workStartDate: 'workHistory.0.startDate',
   workEndDate: 'workHistory.0.endDate',
   jobDescription: 'workHistory.0.description',
   workLocation: 'workHistory.0.location',
   // Work auth
-  needsSponsorship: 'workAuth.needsSponsorship',
-  authorizedToWork: 'workAuth.authorized',
-  visaStatus: 'workAuth.visaStatus',
+  needsSponsorship: 'workAuthorization.needsSponsorship',
+  authorizedToWork: '__computed_authorizedToWork',
+  visaStatus: 'workAuthorization.visaStatus',
   // EEO
   gender: 'eeo.gender',
   race: 'eeo.race',
@@ -84,15 +84,23 @@ function resolvePath(obj, path) {
  * Handles computed values like fullName and phoneCountryCode.
  */
 function getProfileValue(key, profile) {
+  const personal = profile.personal || {};
+
   if (key === '__computed_fullName' || key === 'fullName') {
-    const fn = profile.firstName || '';
-    const ln = profile.lastName || '';
+    const fn = personal.firstName || '';
+    const ln = personal.lastName || '';
     return [fn, ln].filter(Boolean).join(' ') || undefined;
   }
   if (key === '__computed_phoneCountryCode' || key === 'phoneCountryCode') {
     // Extract +XX from phone E.164
-    const m = (profile.phone || '').match(/^(\+\d{1,3})/);
+    const m = (personal.phone || '').match(/^(\+\d{1,3})/);
     return m ? m[1] : undefined;
+  }
+  if (key === '__computed_authorizedToWork' || key === 'authorizedToWork') {
+    // authorizedToWorkInCountry is keyed by the candidate's own country
+    const country = personal.address?.country;
+    const map = profile.workAuthorization?.authorizedToWorkInCountry || {};
+    return country ? map[country] : undefined;
   }
 
   const path = KEY_TO_PROFILE_PATH[key];
