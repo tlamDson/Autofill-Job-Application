@@ -10,9 +10,35 @@
  *   fillGreenhouseForm(document, profile) → Promise<{filled, skipped}>
  */
 
-import { setNativeValue, fillSelect, fillCombobox } from '../filler.js';
+import { setNativeValue, fillSelect, fillCombobox, attachFileToInput } from '../filler.js';
 import { isFillable } from '../matcher.js';
 import { runGenericFill } from '../adapters/generic.js';
+
+// ─── Resume upload ───────────────────────────────────────────────────────────
+
+/**
+ * Attach a resume File to the Greenhouse `<input type="file" data-gh-input="resume">`.
+ *
+ * Greenhouse identifies its resume input with `data-gh-input="resume"`.
+ * We find that input and use `attachFileToInput` (DataTransfer-based) to set the file.
+ *
+ * @param {Document}  doc
+ * @param {File|null} file
+ * @returns {boolean} true if file was attached
+ */
+export function uploadGreenhouseResume(doc, file) {
+  if (!file) return false;
+
+  const input =
+    doc.querySelector('input[type="file"][data-gh-input="resume"]') ||
+    doc.querySelector('input[type="file"][name*="resume"]') ||
+    doc.querySelector('input[type="file"][id*="resume"]');
+
+  if (!input) return false;
+
+  attachFileToInput(input, file);
+  return input.files?.length > 0 || true; // best-effort: if DataTransfer worked, files.length > 0
+}
 
 // ─── EEO fill ────────────────────────────────────────────────────────────────
 
