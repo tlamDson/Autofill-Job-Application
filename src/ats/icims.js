@@ -12,7 +12,7 @@
  *   fillICIMSForm(document, profile) → Promise<{filled, skipped}>
  */
 
-import { setNativeValue, attachFileToInput } from '../filler.js';
+import { setNativeValue, attachFileToInput, resolveResumeFileName } from '../filler.js';
 import { isFillable } from '../matcher.js';
 import { runGenericFill } from '../adapters/generic.js';
 
@@ -106,9 +106,11 @@ export async function fillICIMSForm(doc, profile) {
  *
  * @param {Document}  doc
  * @param {File|null} file
+ * @param {object}    [profile]
+ * @param {object}    [settings]
  * @returns {boolean}
  */
-export function uploadICIMSResume(doc, file) {
+export function uploadICIMSResume(doc, file, profile, settings) {
   if (!file) return false;
 
   const input =
@@ -118,6 +120,6 @@ export function uploadICIMSResume(doc, file) {
 
   if (!input) return false;
 
-  attachFileToInput(input, file);
+  attachFileToInput(input, file, resolveResumeFileName(profile, settings, file.name));
   return true;
 }

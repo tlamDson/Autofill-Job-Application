@@ -10,7 +10,7 @@
  *   fillGreenhouseForm(document, profile) → Promise<{filled, skipped}>
  */
 
-import { setNativeValue, fillSelect, fillCombobox, attachFileToInput } from '../filler.js';
+import { setNativeValue, fillSelect, fillCombobox, attachFileToInput, resolveResumeFileName } from '../filler.js';
 import { isFillable } from '../matcher.js';
 import { runGenericFill } from '../adapters/generic.js';
 
@@ -24,9 +24,11 @@ import { runGenericFill } from '../adapters/generic.js';
  *
  * @param {Document}  doc
  * @param {File|null} file
+ * @param {object}    [profile]  — used to resolve the filename per settings.resumeFileName
+ * @param {object}    [settings]
  * @returns {boolean} true if file was attached
  */
-export function uploadGreenhouseResume(doc, file) {
+export function uploadGreenhouseResume(doc, file, profile, settings) {
   if (!file) return false;
 
   const input =
@@ -36,7 +38,8 @@ export function uploadGreenhouseResume(doc, file) {
 
   if (!input) return false;
 
-  attachFileToInput(input, file);
+  const fileName = resolveResumeFileName(profile, settings, file.name);
+  attachFileToInput(input, file, fileName);
   return input.files?.length > 0 || true; // best-effort: if DataTransfer worked, files.length > 0
 }
 

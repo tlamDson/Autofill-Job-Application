@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { JSDOM } from 'jsdom';
-import { setNativeValue, fillSelect, detectDateRole, fillSplitNumber, fillCombobox, attachFileToInput } from '../src/filler.js';
+import { setNativeValue, fillSelect, detectDateRole, fillSplitNumber, fillCombobox, attachFileToInput, resolveResumeFileName } from '../src/filler.js';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -393,5 +393,56 @@ describe('attachFileToInput', () => {
     input.addEventListener('change', () => (changeFired = true));
     attachFileToInput(input, null);
     expect(changeFired).toBe(false);
+  });
+
+  it('renames the attached file when fileName is given', () => {
+    const doc = makeDoc('<input type="file" />');
+    const input = doc.querySelector('input');
+    const file = new File(['%PDF-1.4'], 'original.pdf', { type: 'application/pdf' });
+
+    attachFileToInput(input, file, 'Ada_Lovelace_Resume.pdf');
+
+    expect(input.files[0].name).toBe('Ada_Lovelace_Resume.pdf');
+  });
+
+  it('keeps the original filename when fileName is omitted', () => {
+    const doc = makeDoc('<input type="file" />');
+    const input = doc.querySelector('input');
+    const file = new File(['%PDF-1.4'], 'original.pdf', { type: 'application/pdf' });
+
+    attachFileToInput(input, file);
+
+    expect(input.files[0].name).toBe('original.pdf');
+  });
+});
+
+// ─── resolveResumeFileName ──────────────────────────────────────────────────
+
+describe('resolveResumeFileName', () => {
+  const profile = { personal: { firstName: 'Ada', lastName: 'Lovelace' } };
+
+  it('builds "First_Last_Resume.<ext>" when resumeFileName is useMyName', () => {
+    const result = resolveResumeFileName(profile, { resumeFileName: 'useMyName' }, 'cv.pdf');
+    expect(result).toBe('Ada_Lovelace_Resume.pdf');
+  });
+
+  it('preserves the original extension', () => {
+    const result = resolveResumeFileName(profile, { resumeFileName: 'useMyName' }, 'cv.docx');
+    expect(result).toBe('Ada_Lovelace_Resume.docx');
+  });
+
+  it('returns the original name when resumeFileName is "original"', () => {
+    const result = resolveResumeFileName(profile, { resumeFileName: 'original' }, 'my-cv.pdf');
+    expect(result).toBe('my-cv.pdf');
+  });
+
+  it('returns the original name when settings is missing', () => {
+    expect(resolveResumeFileName(profile, undefined, 'my-cv.pdf')).toBe('my-cv.pdf');
+  });
+
+  it('returns the original name when profile has no name', () => {
+    const emptyProfile = { personal: { firstName: '', lastName: '' } };
+    const result = resolveResumeFileName(emptyProfile, { resumeFileName: 'useMyName' }, 'my-cv.pdf');
+    expect(result).toBe('my-cv.pdf');
   });
 });

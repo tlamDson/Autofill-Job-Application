@@ -67,4 +67,15 @@ describe('uploadLeverResume', () => {
     const result = uploadLeverResume(doc, null);
     expect(result).toBe(false);
   });
+
+  it('renames the file per settings.resumeFileName === "useMyName"', () => {
+    const doc = makeDoc(LEVER_RESUME_HTML);
+    const input = doc.querySelector('[name="resume"]');
+    const file = new File(['%PDF'], 'my-resume.pdf', { type: 'application/pdf' });
+    const profile = { personal: { firstName: 'Ada', lastName: 'Lovelace' } };
+
+    uploadLeverResume(doc, file, profile, { resumeFileName: 'useMyName' });
+
+    expect(input.files[0].name).toBe('Ada_Lovelace_Resume.pdf');
+  });
 });
