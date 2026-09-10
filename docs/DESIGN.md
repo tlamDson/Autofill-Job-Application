@@ -221,9 +221,12 @@ extension/
 │   │   ├── icims.js
 │   │   └── generic.js       # fallback heuristic
 │   ├── complexAnswer.js     # fingerprint, cache lookup, AI call trigger
+│   ├── settings/
+│   │   ├── store.js         # loadSettings/saveSettings/onSettingsChange (chrome.storage.local, deep-merge)
+│   │   └── fieldGroups.js   # FIELD_GROUPS (theo key classifyField) + isFieldEnabled/setFieldEnabled/setGroupEnabled/groupState
 │   └── background.js        # service worker: AI proxy call, storage coordination
-├── popup/                   # quick autofill trigger + trạng thái
-├── options/                 # Profile editor đầy đủ (import resume, chỉnh từng field)
+├── popup/                   # quick autofill trigger + trạng thái, link ⚙ → options#settings
+├── options/                 # tab "Profile" (editor đầy đủ) + tab "Settings" (options/sections/settings.js)
 └── test/
     ├── matcher.test.js      # unit test classifyField (không cần browser)
     ├── e2e.test.js          # jsdom, sample-form.html giả lập nhiều layout
@@ -259,3 +262,32 @@ extension/
 - Cơ chế heuristic + code mẫu đầy đủ: [dev.to — Building a Local-Only Chrome Extension That Autofills Job Application Forms](https://dev.to/bokuwalily/building-a-local-only-chrome-extension-that-autofills-job-application-forms-4f8a)
 - Mã nguồn mở tương tự: [Jotofiller](https://github.com/mjishnu/Jotofiller), [job_app_filler](https://github.com/berellevy/job_app_filler)
 - Phân tích chuyên sâu Workday/Greenhouse/Lever: openapplier.com/blog (workday-fields-decoded, greenhouse-lever-ashby-fillers-view), veloapply.com (autofill-fails-greenhouse-workday), cvcircuit.com (file upload injection technique)
+
+## 10. Đối chiếu tính năng với Simplify Copilot (feature-parity checklist)
+
+> Nguồn: danh sách setting thực tế của Simplify (help.simplify.jobs) do user cung cấp trong phiên chat, đối chiếu trực tiếp với source code hiện tại. Cập nhật lần 2 (2026-09-10) sau khi build Settings tab (`src/settings/`, `options/sections/settings.js`) trên nhánh `develop`. ✅ = đã có · 🟡 = có nền tảng nhưng chưa đầy đủ / khác hành vi có chủ đích · 🔴 = chưa build.
+
+| Simplify setting | Trạng thái | Ghi chú |
+|---|---|---|
+| Autofill all fields with AI (auto AI cho mọi câu hỏi unique) | 🔴 | Vẫn chưa có toggle "mọi field" kiểu Simplify — nhưng đã có `autoAnswerOpenQuestions` (Settings tab) tự AI-answer các câu hỏi mở còn lại sau khi tra cache, xem row dưới. |
+| Answer unique questions with AI during autofill | ✅ | Giờ là toggle thật trong Settings (`autoAnswerOpenQuestions`, default OFF): OFF → chỉ fill từ `savedAnswers` cache, để user tự bấm AI từng câu; ON → `content.js` tự gọi `handleGenerateAI` cho câu hỏi cache-miss, đổ draft vào cả textarea panel lẫn field thật, user vẫn review trước khi tự bấm Submit. |
+| Extract keywords with AI (string-match keyword từ JD) | 🔴 | Chưa từng đọc nội dung job description. |
+| "Generate with AI" button on form fields | ✅ | `complexAnswer.js` → `createReviewPanel`; giờ có thêm toggle `showGenerateAIButton` (Settings tab, default ON) để ẩn nút này theo ý user (`createReviewPanel(..., { showAIButton })`). |
+| Resume match banner (điểm khớp keyword trên trang job) | 🔴 | Chưa có. |
+| Continuously autofill multipage forms | 🟡 | Giờ là toggle thật (`continuousMultipage`, Settings tab, default ON): `content.js` arm `createFormObserver` sau mỗi lần fill, tự **re-fill** field mới xuất hiện (idempotent — `buildFillPlan` bỏ qua field đã có giá trị), không chỉ báo hiệu như bản cũ. Vẫn cố ý **không tự bấm Next/Submit** theo nguyên tắc "không auto-submit" (mục 1.2) — khác Simplify (Simplify tự lái tới khi nộp xong). |
+| Open the panel on job pages (auto-mở khi detect ATS) | 🔴 | Hiện user phải tự bấm nút Autofill trong popup; không có panel tự nổi lên. |
+| Applications you submit without autofill (vẫn add vào tracker) | 🔴 | Không có tính năng tracker — ngoài phạm vi DESIGN.md hiện tại. |
+| Name of the resume file you upload (tự rename "Tên + resume") | 🟡 | Logic rename đã build và test đầy đủ: `resolveResumeFileName` (`src/filler.js`) + toggle `resumeFileName` ('useMyName'/'original', Settings tab) đã nối vào cả 6 hàm `upload*Resume` của ATS adapters. **Nhưng** bản thân các hàm `upload*Resume` chưa được gọi từ runtime pipeline (`content.js`/`injected.js`) — resume vẫn chưa tự động được đính kèm khi autofill chạy, đây là gap có từ trước, độc lập với tính năng rename. Xem mục nợ kỹ thuật bên dưới. |
+| Fill progress view | 🟡 | Popup hiện "✓ Filled N fields (M skipped)" + "(K fields tắt trong Settings)" khi có field bị user tắt qua toggle — không phải live progress theo từng field/step như Simplify, nhưng cùng mục đích. |
+| Submission view / Add custom application | 🔴 | Không có modal detect-submission, không có job recommendation, không có custom-application form — thuộc tính năng tracker, ngoài phạm vi hiện tại. |
+
+**Tính năng mới không nằm trong danh sách setting gốc của Simplify nhưng đã build cùng đợt này:**
+- **Fields to autofill** (Settings tab): toggle bật/tắt từng field theo `classifyField` key, gom theo 9 nhóm (Personal/Location/Links/Documents/Education/Work History/Work Authorization/EEO/Compensation), có master toggle theo nhóm (on/off/mixed). Field bị tắt được `buildFillPlan` bỏ qua và đếm riêng vào `skippedByUser`.
+- **AI Provider settings** (Settings tab): chọn provider (openai/gemini), API key (ẩn/hiện), model — thay cho việc phải set trực tiếp trong storage.
+
+**Nợ kỹ thuật còn tồn đọng (chưa nằm trong scope Settings tab vừa build, cần Phase riêng):**
+1. **Bug `_findNearbyText` vẫn chưa fix**: `buildContext()` trong `src/matcher.js` (dòng ~106, ~146) khởi tạo `nearbyText = ''` rồi check `if (!nearbyText)` để quyết định có chạy `_findNearbyText(el)` hay không — điều kiện này **luôn đúng** (nearbyText luôn rỗng tại thời điểm check), nên `_findNearbyText` luôn chạy kể cả khi `labelText` đã tìm được qua `label[for]`/wrapping-label/`aria-labelledby`. Hệ quả: text "nhiễu" từ DOM lân cận (VD field GitHub nằm gần heading "LinkedIn") vẫn lọt vào `_ctxText()` dùng để classify, có thể gây nhận nhầm field. Fix đúng: đổi điều kiện thành `if (!labelText)`. Chưa fix trong đợt Settings tab này vì nằm ngoài 9 task đã lên kế hoạch — cần task riêng + test trước khi merge.
+2. **Resume upload chưa nối vào runtime**: các hàm `upload*Resume(doc, file, profile, settings)` (Greenhouse/Lever/Ashby/iCIMS/Workday/SmartRecruiters) và `interceptWorkdayFileInput` chỉ được gọi trực tiếp từ unit test, không có chỗ nào trong `content.js`/`injected.js` gọi chúng khi chạy Autofill thật — nghĩa là toggle `resumeFileName` mới có tác dụng nếu/khi luồng upload này được nối vào pipeline chính. Cần: (a) quyết định resume file lấy từ đâu lúc runtime (`profile.resumeFiles`?), (b) map ATS đang active → đúng hàm `upload*Resume`, (c) gọi trong `runGenericFill`/adapter fill flow tương ứng.
+3. Extract keywords + resume match banner — cần đọc DOM trang mô tả job (không phải form), là luồng dữ liệu mới, không tái dùng matcher.js.
+4. Auto-open panel khi detect ATS — mở rộng `content.js`, cần quyết định UX (có thể gây khó chịu nếu luôn tự bật).
+5. Application tracker (submission view, add custom application) — lớn nhất, gần như 1 sub-feature riêng (cần lưu trữ lịch sử, có thể cần UI mới hoàn toàn) — nên tách thành Phase riêng nếu làm.
