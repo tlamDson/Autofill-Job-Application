@@ -10,9 +10,68 @@
  *   fillGreenhouseForm(document, profile) → Promise<{filled, skipped}>
  */
 
-import { setNativeValue, fillSelect } from '../filler.js';
+import { setNativeValue, fillSelect, fillCombobox } from '../filler.js';
 import { isFillable } from '../matcher.js';
 import { runGenericFill } from '../adapters/generic.js';
+
+// ─── EEO fill ────────────────────────────────────────────────────────────────
+
+/**
+ * EEO field mapping: data-gh-input value → profile path
+ */
+const EEO_GH_MAP = {
+  eeoc_gender: (profile) => profile.eeo?.gender,
+  eeoc_race: (profile) => profile.eeo?.race,
+  eeoc_veteran_status: (profile) => profile.eeo?.veteranStatus,
+  eeoc_disability_status: (profile) => profile.eeo?.disabilityStatus,
+  eeoc_hispanic_ethnicity: (profile) => profile.eeo?.hispanicLatino,
+};
+
+/**
+ * For EEO fields, if the profile value is empty string, select the
+ * "Decline To Self Identify" / "I Don't Wish To Answer" option.
+ */
+const DECLINE_PATTERNS = /decline|prefer not|don.?t wish|not to answer/i;
+
+/**
+ * Fill Greenhouse EEO <select> elements.
+ *
+ * @param {Document} doc
+ * @param {object}   profile
+ */
+export async function fillGreenhouseEEO(doc, profile) {
+  for (const [ghKey, resolver] of Object.entries(EEO_GH_MAP)) {
+    const el = doc.querySelector(`[data-gh-input="${ghKey}"]`);
+    if (!el || el.tagName.toLowerCase() !== 'select') continue;
+
+    const rawValue = resolver(profile);
+
+    if (rawValue != null && rawValue !== '') {
+      // Fill with the profile value
+      fillSelect(el, String(rawValue));
+    } else if (rawValue === '') {
+      // Empty string = decline to answer — find the "decline" option
+      const opts = Array.from(el.options);
+      const declineOpt = opts.find((o) => DECLINE_PATTERNS.test(o.text));
+      if (declineOpt) {
+        el.value = declineOpt.value;
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }
+  }
+}
+
+/**
+ * Fill a Greenhouse custom combobox (autocomplete-style widget).
+ * Wrapper around the generic fillCombobox that returns the same boolean result.
+ *
+ * @param {Element} container  — element with role="combobox"
+ * @param {string}  value      — desired text to select
+ * @returns {Promise<boolean>}
+ */
+export async function fillGreenhouseCombobox(container, value) {
+  return fillCombobox(container, value);
+}
 
 // ─── Greenhouse field mapping ─────────────────────────────────────────────────
 // Maps data-gh-input attribute values to profile value resolver functions.
