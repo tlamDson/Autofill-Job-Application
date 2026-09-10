@@ -254,4 +254,19 @@ describe('runGenericFill', () => {
     expect(result.filled).toBe(1);
     expect(result.skippedByUser).toBe(0);
   });
+
+  it('counts a combobox with no matching option as skipped, not filled — no silent false positive', async () => {
+    // role="combobox" directly on the input (the real React-Select shape),
+    // with no listener that ever renders any options — fillCombobox can
+    // never match anything, so this must not be counted as filled.
+    const doc = makeDoc(`
+      <label for="country">Country</label>
+      <input id="country" role="combobox" aria-autocomplete="list" name="country" />
+    `);
+
+    const result = await runGenericFill(doc, PROFILE);
+
+    expect(result.filled).toBe(0);
+    expect(result.skipped).toBe(1);
+  });
 });

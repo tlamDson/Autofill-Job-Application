@@ -200,62 +200,109 @@ export function resolveResumeFileName(profile, settings, originalName) {
 // ─── P1.12 — fillCombobox ────────────────────────────────────────────────────
 
 /**
- * Fill a custom aria-combobox widget.
+ * Fill a custom aria-combobox widget (e.g. React-Select).
+ *
+ * Handles two DOM shapes:
+ *  (a) role="combobox" on a wrapper <div> with a nested <input> — the shape
+ *      test fixtures have historically assumed.
+ *  (b) role="combobox" directly on the <input> itself — what real React-Select
+ *      widgets (e.g. Greenhouse's application form) actually render. Since
+ *      buildFillPlan() only ever queries input/select/textarea, this is in
+ *      practice the *only* shape that ever reaches this function outside tests.
  *
  * Strategy:
- *  1. Find the text input inside the combobox container.
- *  2. Type the target value into it (triggers input event → listbox should appear).
- *  3. Wait a tick for the listbox to render.
- *  4. Find a matching [role="option"] by text (case-insensitive).
- *  5. Fire mousedown + click on that option.
- *  6. Return true if an option was matched, false otherwise.
+ *  1. Resolve the text input: `container` itself if it already is one, else
+ *     search its descendants.
+ *  2. Open the menu the way React-Select does — mousedown (not just focus)
+ *     opens it — then type the target value to trigger its filter.
+ *  3. Poll briefly for the listbox to render, since real widgets render
+ *     options asynchronously and a single setTimeout(0) can fire too early.
+ *  4. Resolve the listbox via aria-controls / aria-owns / a container-scoped
+ *     search, falling back to a document-wide search — real widgets commonly
+ *     portal their menu outside the input's DOM subtree entirely.
+ *  5. Match by text (exact → starts-with → includes) and fire
+ *     mousedown + mouseup + click on the option, mirroring real user input.
+ *  6. If no [role="option"] ever appears, fall back to ArrowDown + Enter,
+ *     which commits React-Select's own highlighted (first filtered) option.
+ *  7. Verify by reading the input's own value back, and return an honest
+ *     boolean — never claim success when nothing actually matched.
  *
- * This is intentionally synchronous-friendly: it uses a minimal setTimeout(0)
- * to allow the DOM to react to the input event before scanning for options.
- *
- * @param {HTMLElement} container  — element with role="combobox"
+ * @param {HTMLElement} container  — element with role="combobox" (input or wrapper)
  * @param {string}      value      — desired option text
  * @returns {Promise<boolean>}
  */
 export async function fillCombobox(container, value) {
-  // Find the text input inside the combobox
-  const input = container.querySelector('input[type="text"], input[aria-autocomplete]') ||
-                container.querySelector('input');
+  const doc = container.ownerDocument || document;
+
+  const input = container.matches?.('input')
+    ? container
+    : container.querySelector('input[type="text"], input[aria-autocomplete]') ||
+      container.querySelector('input');
   if (!input) return false;
+
+  // React-Select opens its menu on mousedown, not merely on focus.
+  input.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+  input.focus();
 
   // Type into the input to trigger filtering
   setNativeValue(input, value);
 
-  // Wait a tick for the listbox to appear
-  await new Promise((resolve) => setTimeout(resolve, 0));
-
-  // Find the listbox
-  const listbox = container.querySelector('[role="listbox"]') ||
-                  document.getElementById(container.getAttribute('aria-controls') || '') ||
-                  container;
-
-  // Find matching option
   const lower = value.toLowerCase().trim();
-  const options = Array.from(
-    listbox.querySelectorAll('[role="option"]')
-  );
 
-  // Prefer exact match, then starts-with, then includes
-  let match =
-    options.find((o) => o.textContent.trim().toLowerCase() === lower) ||
-    options.find((o) => o.textContent.trim().toLowerCase().startsWith(lower)) ||
-    options.find((o) => o.textContent.trim().toLowerCase().includes(lower));
+  function resolveListbox() {
+    const controlsId = input.getAttribute('aria-controls') || container.getAttribute('aria-controls');
+    const ownsId = input.getAttribute('aria-owns') || container.getAttribute('aria-owns');
+    return (
+      (controlsId && doc.getElementById(controlsId)) ||
+      (ownsId && doc.getElementById(ownsId)) ||
+      container.querySelector('[role="listbox"]') ||
+      doc.querySelector('[role="listbox"]') ||
+      container
+    );
+  }
 
-  if (!match) return false;
+  function findMatch(listbox) {
+    const options = Array.from(listbox.querySelectorAll('[role="option"]'));
+    return (
+      options.find((o) => o.textContent.trim().toLowerCase() === lower) ||
+      options.find((o) => o.textContent.trim().toLowerCase().startsWith(lower)) ||
+      options.find((o) => o.textContent.trim().toLowerCase().includes(lower)) ||
+      null
+    );
+  }
 
-  // Fire mousedown then click (mimics real user interaction)
-  match.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-  match.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  // Poll briefly for the listbox/options to render — real widgets update
+  // asynchronously in response to the input event dispatched above.
+  let match = null;
+  for (let attempt = 0; attempt < 10; attempt++) {
+    match = findMatch(resolveListbox());
+    if (match) break;
+    await new Promise((resolve) => setTimeout(resolve, 30));
+  }
 
-  // Update the input value to the matched option's text
-  setNativeValue(input, match.textContent.trim());
+  if (match) {
+    match.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    match.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    match.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    setNativeValue(input, match.textContent.trim());
+    return true;
+  }
 
-  return true;
+  // Keyboard fallback: no [role="option"] ever rendered via ARIA (e.g. the
+  // widget virtualizes its list), but a real combobox commonly still
+  // highlights a best match internally that Enter commits.
+  const beforeKeyboard = (input.value || '').trim().toLowerCase();
+  input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+  input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  await new Promise((resolve) => setTimeout(resolve, 30));
+
+  // Only claim success if the widget itself changed the input's value in
+  // response — e.g. replacing the typed filter text with the committed
+  // option's label. If it's unchanged, nothing was actually confirmed and
+  // claiming success would be exactly the silent false-positive this
+  // function used to produce.
+  const afterKeyboard = (input.value || '').trim().toLowerCase();
+  return Boolean(afterKeyboard) && afterKeyboard !== beforeKeyboard;
 }
 
 // ─── P1.11 — fillSplitNumber ─────────────────────────────────────────────────

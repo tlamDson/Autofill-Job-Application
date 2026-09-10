@@ -180,10 +180,13 @@ export function buildFillPlan(doc, profile, settings = {}, stats) {
  * @param {string}       key       — classified profile key
  * @param {any}          value     — profile value to fill
  * @param {Document}     doc       — owning document (for radio siblings)
- * @returns {Promise<void>}
+ * @returns {Promise<boolean>} whether the field was actually filled — false
+ *   (rather than a thrown error) is how a combobox with no matching option
+ *   reports failure, so callers must check this instead of assuming any
+ *   non-throwing call succeeded.
  */
 export async function fillField(el, key, value, doc) {
-  if (value == null || value === '') return;
+  if (value == null || value === '') return false;
 
   const tagName = el.tagName.toLowerCase();
   const type = (el.type || '').toLowerCase();
@@ -195,7 +198,7 @@ export async function fillField(el, key, value, doc) {
       el.checked = checked;
       el.dispatchEvent(new Event('change', { bubbles: true }));
     }
-    return;
+    return true;
   }
 
   // Radio group — find sibling with matching value
@@ -215,24 +218,24 @@ export async function fillField(el, key, value, doc) {
       match.checked = true;
       match.dispatchEvent(new Event('change', { bubbles: true }));
     }
-    return;
+    return Boolean(match);
   }
 
   // Native <select>
   if (tagName === 'select') {
     fillSelect(el, String(value));
-    return;
+    return true;
   }
 
   // aria-combobox container (custom dropdown)
   const role = el.getAttribute('role');
   if (role === 'combobox') {
-    await fillCombobox(el, String(value));
-    return;
+    return fillCombobox(el, String(value));
   }
 
   // textarea / text input (default)
   setNativeValue(el, String(value));
+  return true;
 }
 
 // ─── runGenericFill ───────────────────────────────────────────────────────────
@@ -253,8 +256,9 @@ export async function runGenericFill(doc, profile, settings = {}) {
 
   for (const { el, key, value } of plan) {
     try {
-      await fillField(el, key, value, doc);
-      filled++;
+      const ok = await fillField(el, key, value, doc);
+      if (ok) filled++;
+      else skipped++;
     } catch (err) {
       console.warn('[Autofill] fillField error', key, err);
       skipped++;
