@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { JSDOM } from 'jsdom';
-import { setNativeValue, fillSelect, detectDateRole } from '../src/filler.js';
+import { setNativeValue, fillSelect, detectDateRole, fillSplitNumber } from '../src/filler.js';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -206,5 +206,69 @@ describe('fillSelect', () => {
     const sel = doc.querySelector('select');
     fillSelect(sel, 'maybe');
     expect(sel.value).toBe('');
+  });
+});
+
+// ─── P1.11 — fillSplitNumber ──────────────────────────────────────────────────
+
+describe('fillSplitNumber', () => {
+  it('splits a phone number across country-code + number inputs', () => {
+    const doc = makeDoc(`
+      <div>
+        <input id="country-code" name="phone_country_code" type="text" />
+        <input id="phone-number" name="phone_number" type="tel" />
+      </div>
+    `);
+    const countryInput = doc.getElementById('country-code');
+    const phoneInput = doc.getElementById('phone-number');
+    let inputFired = false;
+    phoneInput.addEventListener('input', () => (inputFired = true));
+
+    fillSplitNumber([countryInput, phoneInput], '+1', '4155552671');
+
+    expect(countryInput.value).toBe('+1');
+    expect(phoneInput.value).toBe('4155552671');
+    expect(inputFired).toBe(true);
+  });
+
+  it('fills a single combined phone input with full number', () => {
+    const doc = makeDoc('<input type="tel" />');
+    const input = doc.querySelector('input');
+    fillSplitNumber([input], null, '+14155552671');
+    expect(input.value).toBe('+14155552671');
+  });
+
+  it('fills area + exchange + number 3-part split', () => {
+    const doc = makeDoc(`
+      <div>
+        <input id="area" maxlength="3" />
+        <input id="exch" maxlength="3" />
+        <input id="num"  maxlength="4" />
+      </div>
+    `);
+    const area = doc.getElementById('area');
+    const exch = doc.getElementById('exch');
+    const num = doc.getElementById('num');
+
+    // Phone: +1-415-555-2671 → area=415, exch=555, num=2671
+    fillSplitNumber([area, exch, num], null, '+14155552671');
+
+    expect(area.value).toBe('415');
+    expect(exch.value).toBe('555');
+    expect(num.value).toBe('2671');
+  });
+
+  it('skips country-code input when first input name hints at country code', () => {
+    const doc = makeDoc(`
+      <input id="cc"    name="country_code" maxlength="4" />
+      <input id="phone" name="phone_local"  maxlength="10" />
+    `);
+    const cc = doc.getElementById('cc');
+    const phone = doc.getElementById('phone');
+
+    fillSplitNumber([cc, phone], '+84', '0912345678');
+
+    expect(cc.value).toBe('+84');
+    expect(phone.value).toBe('0912345678');
   });
 });

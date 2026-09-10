@@ -105,6 +105,80 @@ export function fillSelect(el, value) {
   el.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
+// ─── P1.11 — fillSplitNumber ─────────────────────────────────────────────────
+
+/**
+ * Fill phone number fields that are split across multiple inputs.
+ *
+ * Supported layouts:
+ *  1. Single input — fills with `countryCode + localNumber` (or just localNumber).
+ *  2. Two inputs where first looks like country-code (name/id hint) — fills
+ *     countryCode into first, localNumber into second.
+ *  3. Three inputs (area/exchange/number) — splits the local portion into
+ *     3+3+4 digit groups (US style) using each input's maxlength as guidance.
+ *
+ * @param {HTMLInputElement[]} inputs   — ordered list of input elements
+ * @param {string|null}        countryCode  — e.g. "+1", "+84"; may be null
+ * @param {string}             localNumber  — digits only or full E.164 string
+ */
+export function fillSplitNumber(inputs, countryCode, localNumber) {
+  if (!inputs || inputs.length === 0) return;
+
+  // Normalise localNumber: strip leading country code if full E.164 was passed
+  let local = String(localNumber || '').trim();
+  let cc = String(countryCode || '').trim();
+
+  // Helper: is this input a country-code picker?
+  function isCountryCodeInput(el) {
+    const hint = ((el.name || '') + ' ' + (el.id || '')).toLowerCase();
+    return /country.?code|phone.?code|dial.?code|cc\b|isd/.test(hint);
+  }
+
+  // Single input — fill with cc+local or just local
+  if (inputs.length === 1) {
+    const full = cc ? `${cc}${local}` : local;
+    setNativeValue(inputs[0], full);
+    return;
+  }
+
+  // Two inputs — detect country-code role on first input
+  if (inputs.length === 2) {
+    if (cc && (isCountryCodeInput(inputs[0]) || !isCountryCodeInput(inputs[1]))) {
+      setNativeValue(inputs[0], cc);
+      setNativeValue(inputs[1], local);
+    } else {
+      // No country code split — fill first with cc+local, second with local
+      setNativeValue(inputs[0], cc || local);
+      setNativeValue(inputs[1], local);
+    }
+    return;
+  }
+
+  // Three+ inputs — split local digits into chunks guided by maxlength
+  // Strip all non-digits from local (and leading country code digits)
+  let digits = local.replace(/\D/g, '');
+  // If country code passed and local starts with its digits, strip them
+  if (cc) {
+    const ccDigits = cc.replace(/\D/g, '');
+    if (digits.startsWith(ccDigits)) digits = digits.slice(ccDigits.length);
+  }
+
+  // Calculate total capacity from maxlength attributes
+  const maxLens = inputs.map((el) => parseInt(el.getAttribute('maxlength') || '0', 10));
+  const totalCapacity = maxLens.reduce((s, n) => s + n, 0);
+  // If digits exceed capacity, strip excess from the front (country code prefix)
+  if (totalCapacity > 0 && digits.length > totalCapacity) {
+    digits = digits.slice(digits.length - totalCapacity);
+  }
+
+  inputs.forEach((input, i) => {
+    const chunkLen = maxLens[i] > 0 ? maxLens[i] : (i === inputs.length - 1 ? digits.length : 3);
+    const chunk = digits.slice(0, chunkLen);
+    digits = digits.slice(chunkLen);
+    setNativeValue(input, chunk);
+  });
+}
+
 // ─── P1.9 — setNativeValue ────────────────────────────────────────────────────
 
 /**
