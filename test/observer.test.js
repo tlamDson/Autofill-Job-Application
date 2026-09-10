@@ -82,6 +82,25 @@ describe('createFormObserver', () => {
     obs.stop();
   });
 
+  it('start() is idempotent — calling it again while already observing does not duplicate callbacks', async () => {
+    const doc = makeDoc('<div id="form-root"></div>');
+    const root = doc.getElementById('form-root');
+
+    const onNewFields = vi.fn();
+    const obs = createFormObserver(root, onNewFields, { debounceMs: 10 });
+    obs.start();
+    obs.start(); // re-arm, as content.js does on every runFill() when continuousMultipage is on
+
+    const input = doc.createElement('input');
+    input.type = 'text';
+    root.appendChild(input);
+
+    await new Promise((r) => setTimeout(r, 30));
+
+    expect(onNewFields).toHaveBeenCalledTimes(1);
+    obs.stop();
+  });
+
   it('stop() disconnects the observer — no more callbacks', async () => {
     const doc = makeDoc('<div id="form-root"></div>');
     const root = doc.getElementById('form-root');

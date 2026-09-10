@@ -111,10 +111,25 @@ function getProfileValue(key, profile) {
   return resolvePath(profile, path);
 }
 
+/**
+ * Whether `el` already holds a value, so a re-scan (e.g. after new fields
+ * appear on a multi-step form) should leave it alone instead of re-filling it.
+ * Checkbox/radio are excluded: their `.value` attribute is a fixed string
+ * unrelated to `.checked`, and fillField() is already a no-op when the
+ * checked state already matches the target.
+ */
+function alreadyHasValue(el) {
+  const type = (el.type || '').toLowerCase();
+  if (type === 'checkbox' || type === 'radio') return false;
+  return !!el.value;
+}
+
 // ─── buildFillPlan ────────────────────────────────────────────────────────────
 
 /**
  * Scan all form fields in `document` and produce a fill plan.
+ * Idempotent: a field that already holds a value is left alone, so calling
+ * this again after new fields appear (multi-step forms) only targets those.
  *
  * @param {Document}  doc
  * @param {object}    profile   — normalised user profile
@@ -143,6 +158,8 @@ export function buildFillPlan(doc, profile, settings = {}, stats) {
       if (stats) stats.skippedByUser = (stats.skippedByUser || 0) + 1;
       continue;
     }
+
+    if (alreadyHasValue(el)) continue;
 
     const value = getProfileValue(key, profile);
     if (value == null || value === '') continue;

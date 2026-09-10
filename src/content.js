@@ -18,6 +18,7 @@
 
 import { loadProfile } from './profile/store.js';
 import { loadSettings } from './settings/store.js';
+import { createFormObserver } from './observer.js';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -81,6 +82,20 @@ if (
   typeof window !== 'undefined' &&
   !window.__AUTOFILL_TEST__
 ) {
+  // Multipage form observer — created lazily, started only when
+  // settings.continuousMultipage is on. start()/createFormObserver are both
+  // idempotent, so re-arming on every runFill() call is safe.
+  let multipageObserver = null;
+
+  function armMultipageObserver() {
+    if (!multipageObserver) {
+      multipageObserver = createFormObserver(document.body, () => {
+        runFill().catch((err) => console.error('[Autofill] multipage re-fill error', err));
+      });
+    }
+    multipageObserver.start();
+  }
+
   /**
    * runFill: loads profile from storage, posts to MAIN world, awaits result.
    * Uses window.postMessage to cross the isolated/MAIN world boundary.
@@ -88,7 +103,7 @@ if (
   async function runFill() {
     const [profile, settings] = await Promise.all([loadProfile(), loadSettings()]);
 
-    return new Promise((resolve, reject) => {
+    const result = await new Promise((resolve, reject) => {
       const requestId = `fill_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 
       function onResult(event) {
@@ -130,6 +145,10 @@ if (
         reject(new Error('Fill timeout'));
       }, 30000);
     });
+
+    if (settings.continuousMultipage) armMultipageObserver();
+
+    return result;
   }
 
   chrome.runtime.onMessage.addListener(makeMessageHandler({ runFill }));
