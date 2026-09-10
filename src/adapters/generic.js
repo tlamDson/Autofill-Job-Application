@@ -11,7 +11,7 @@
  */
 
 import { buildContext, classifyField, isFillable } from '../matcher.js';
-import { setNativeValue, fillSelect, fillCombobox, selectDeclineOption } from '../filler.js';
+import { setNativeValue, fillSelect, fillCombobox, selectDeclineOption, attachFileToInput, resolveResumeFileName } from '../filler.js';
 import { isFieldEnabled } from '../settings/fieldGroups.js';
 
 /**
@@ -49,6 +49,11 @@ const KEY_TO_PROFILE_PATH = {
   portfolio: 'links.portfolio',
   website: 'links.website',
   pronouns: 'personal.pronouns',
+  // Resume upload — resolved via profile.__resumeFile, attached to a
+  // runtime-only profile clone by content.js/injected.js just before the
+  // fill runs (see runGenericFill's docs). Never present in stored/JSON
+  // profile data.
+  resume: '__computed_resumeFile',
   // Education [0]
   school: 'education.0.school',
   degree: 'education.0.degree',
@@ -109,6 +114,9 @@ function getProfileValue(key, profile) {
     // Extract +XX from phone E.164
     const m = (personal.phone || '').match(/^(\+\d{1,3})/);
     return m ? m[1] : undefined;
+  }
+  if (key === '__computed_resumeFile' || key === 'resume') {
+    return profile.__resumeFile || undefined;
   }
 
   const path = KEY_TO_PROFILE_PATH[key];
@@ -178,6 +186,16 @@ export function buildFillPlan(doc, profile, settings = {}, stats) {
       continue;
     }
 
+    // Resume upload: value is a File (or undefined if none is available at
+    // fill time). Resolve the filename here, where profile/settings are
+    // in scope, rather than threading them through fillField.
+    if (key === 'resume') {
+      if (!value) continue;
+      const fileName = resolveResumeFileName(profile, settings, value.name);
+      plan.push({ el, key, value: { file: value, fileName } });
+      continue;
+    }
+
     // An explicit empty string on a decline-eligible (EEO/demographic) key
     // means "decline to answer" — a real, expected choice on such forms —
     // rather than "no value available", which is what an empty string means
@@ -215,6 +233,13 @@ export async function fillField(el, key, value, doc, declined = false) {
 
   const tagName = el.tagName.toLowerCase();
   const type = (el.type || '').toLowerCase();
+
+  // File input (resume upload)
+  if (type === 'file') {
+    if (!value || !value.file) return false;
+    attachFileToInput(el, value.file, value.fileName);
+    return true;
+  }
 
   // Checkbox
   if (type === 'checkbox') {

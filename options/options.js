@@ -10,6 +10,7 @@ import { normalizeProfile } from '../src/profile/schema.js';
 import { loadSettings, saveSettings } from '../src/settings/store.js';
 import { renderPersonal } from './sections/personal.js';
 import { renderLinks } from './sections/links.js';
+import { renderDocuments } from './sections/documents.js';
 import { renderEducation } from './sections/education.js';
 import { renderWorkHistory } from './sections/workHistory.js';
 import { renderWorkAuth } from './sections/workAuth.js';
@@ -61,6 +62,7 @@ async function init() {
 
   renderPersonal(panelProfile, profile, onSaveProfile);
   renderLinks(panelProfile, profile, onSaveProfile);
+  renderDocuments(panelProfile, profile, onSaveProfile);
   renderEducation(panelProfile, profile, onSaveProfile);
   renderWorkHistory(panelProfile, profile, onSaveProfile);
   renderWorkAuth(panelProfile, profile, onSaveProfile);

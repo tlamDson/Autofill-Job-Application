@@ -18,6 +18,7 @@
 
 import { loadProfile } from './profile/store.js';
 import { loadSettings } from './settings/store.js';
+import { loadMirroredResume } from './profile/resumeTransport.js';
 import { createFormObserver } from './observer.js';
 import { collectOpenQuestions, createReviewPanel, handleGenerateAI } from './complexAnswer.js';
 import { fillOpenQuestion } from './qa.js';
@@ -121,6 +122,23 @@ if (
   async function runFill() {
     const [profile, settings] = await Promise.all([loadProfile(), loadSettings()]);
 
+    // Best-effort: attach the currently-saved resume as a File so injected.js
+    // (MAIN world) can attach it to a resume upload input. resumeStore.js's
+    // IndexedDB is unreachable from here (it's scoped to the options page's
+    // chrome-extension:// origin, not this page's), so the bytes are read
+    // back from the chrome.storage.local mirror written at upload time
+    // (resumeTransport.js). A missing/oversized/not-yet-uploaded resume is
+    // not an error — the rest of the fill should proceed regardless.
+    let resumeFile = null;
+    const resumeRef = profile.resumeFiles?.[0]?.fileRef;
+    if (resumeRef) {
+      try {
+        resumeFile = await loadMirroredResume(resumeRef);
+      } catch (err) {
+        console.warn('[Autofill] could not load resume for attach', err);
+      }
+    }
+
     const result = await new Promise((resolve, reject) => {
       const requestId = `fill_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 
@@ -145,13 +163,16 @@ if (
 
       window.addEventListener('message', onResult);
 
-      // Post to MAIN world (injected.js receives this)
+      // Post to MAIN world (injected.js receives this). structured clone
+      // (unlike chrome.runtime.sendMessage's JSON serialization) preserves
+      // File objects intact, so resumeFile survives the world boundary.
       window.postMessage(
         {
           type: MSG_AUTOFILL_TRIGGER,
           requestId,
           profile,
           settings,
+          resumeFile,
           source: '__autofill_content__',
         },
         '*'

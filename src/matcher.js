@@ -487,6 +487,16 @@ const CLASSIFY_RULES = [
     key: 'pronouns',
     test: (ctx) => /pronoun/i.test(_ctxText(ctx)),
   },
+  // ── Resume upload ────────────────────────────────────────────────
+  {
+    key: 'resume',
+    test: (ctx) => {
+      if (ctx.attrs.type !== 'file') return false;
+      const t = _ctxText(ctx);
+      const n = ctx.attrs.name || '';
+      return /resume|\bcv\b|curriculum\s*vitae/i.test(t) || /resume|\bcv\b/i.test(n);
+    },
+  },
   // ── Compensation group (P1.7) ──────────────────────────────────
   {
     key: 'noticePeriod',
