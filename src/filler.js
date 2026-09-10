@@ -121,15 +121,21 @@ export function fillSelect(el, value) {
  *
  * @param {HTMLInputElement} input
  * @param {File|Blob|null}   file
+ * @param {string}           [fileName] — when given, the attached file is renamed to this
+ *                                        (overrides the original File's own name)
  */
-export function attachFileToInput(input, file) {
+export function attachFileToInput(input, file, fileName) {
   if (!file) return;
+
+  function toNamedFile(f) {
+    if (fileName) return new File([f], fileName, { type: f.type || 'application/pdf' });
+    return f instanceof File ? f : new File([f], 'resume.pdf', { type: f.type || 'application/pdf' });
+  }
 
   try {
     if (typeof DataTransfer !== 'undefined') {
       const dt = new DataTransfer();
-      // DataTransfer.items.add requires a File, not a Blob
-      const f = file instanceof File ? file : new File([file], 'resume.pdf', { type: file.type || 'application/pdf' });
+      const f = toNamedFile(file);
       dt.items.add(f);
       // In MAIN world, input.files is assignable via the descriptor
       const proto = input.constructor?.prototype ?? Object.getPrototypeOf(input);
@@ -144,7 +150,7 @@ export function attachFileToInput(input, file) {
     }
   } catch {
     // Best-effort fallback: define a minimal FileList-like own property
-    const f = file instanceof File ? file : new File([file], 'resume.pdf', { type: file.type || 'application/pdf' });
+    const f = toNamedFile(file);
     const fakeFileList = {
       0: f,
       length: 1,
@@ -163,6 +169,32 @@ export function attachFileToInput(input, file) {
   }
 
   input.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+/**
+ * Resolve the filename to use when attaching a resume, per settings.resumeFileName.
+ *
+ * - 'useMyName' (default): "First_Last_Resume.<ext>" from profile.personal, keeping
+ *   the original extension. Falls back to originalName if the profile has no name.
+ * - anything else (e.g. 'original'), or missing profile/settings: originalName unchanged.
+ *
+ * @param {object} [profile]
+ * @param {object} [settings]
+ * @param {string} [originalName]
+ * @returns {string}
+ */
+export function resolveResumeFileName(profile, settings, originalName) {
+  if (settings?.resumeFileName !== 'useMyName') return originalName;
+
+  const firstName = (profile?.personal?.firstName || '').trim();
+  const lastName = (profile?.personal?.lastName || '').trim();
+  const nameParts = [firstName, lastName].filter(Boolean);
+  if (nameParts.length === 0) return originalName;
+
+  const base = nameParts.join('_').replace(/\s+/g, '_');
+  const dotIdx = (originalName || '').lastIndexOf('.');
+  const ext = dotIdx > -1 ? originalName.slice(dotIdx + 1) : 'pdf';
+  return `${base}_Resume.${ext}`;
 }
 
 // ─── P1.12 — fillCombobox ────────────────────────────────────────────────────

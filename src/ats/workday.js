@@ -21,7 +21,7 @@
  *  fillWorkdayForm(doc, profile) → Promise<{filled, skipped}>
  */
 
-import { setNativeValue, fillSelect, attachFileToInput } from '../filler.js';
+import { setNativeValue, fillSelect, attachFileToInput, resolveResumeFileName } from '../filler.js';
 import { isFillable } from '../matcher.js';
 import { runGenericFill } from '../adapters/generic.js';
 
@@ -175,9 +175,11 @@ export async function fillWorkdayDropdown(container, value) {
  *
  * @param {Document}  doc
  * @param {File|null} file
+ * @param {object}    [profile]
+ * @param {object}    [settings]
  * @returns {boolean}
  */
-export function uploadWorkdayResume(doc, file) {
+export function uploadWorkdayResume(doc, file, profile, settings) {
   if (!file) return false;
 
   const input =
@@ -187,7 +189,7 @@ export function uploadWorkdayResume(doc, file) {
 
   if (!input) return false;
 
-  attachFileToInput(input, file);
+  attachFileToInput(input, file, resolveResumeFileName(profile, settings, file.name));
   return true;
 }
 
@@ -380,9 +382,11 @@ export function fillWorkdayRadioQuestion(container, value) {
  *
  * @param {Document}  doc
  * @param {File}      file  — the file to attach when any file input is clicked
+ * @param {object}    [profile]
+ * @param {object}    [settings]
  * @returns {Function}      — cleanup: call to restore the original click
  */
-export function interceptWorkdayFileInput(doc, file) {
+export function interceptWorkdayFileInput(doc, file, profile, settings) {
   const win = doc.defaultView || doc.ownerDocument?.defaultView;
   if (!win) return () => {};
 
@@ -392,7 +396,7 @@ export function interceptWorkdayFileInput(doc, file) {
   InputProto.click = function interceptedClick() {
     if (this.type === 'file') {
       // Attach the file instead of opening the native picker
-      attachFileToInput(this, file);
+      attachFileToInput(this, file, resolveResumeFileName(profile, settings, file.name));
       return;
     }
     // Not a file input — call original

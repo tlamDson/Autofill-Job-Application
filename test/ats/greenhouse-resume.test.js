@@ -55,4 +55,15 @@ describe('uploadGreenhouseResume', () => {
     const result = uploadGreenhouseResume(doc, null);
     expect(result).toBe(false);
   });
+
+  it('renames the file per settings.resumeFileName === "useMyName"', () => {
+    const doc = makeDoc(RESUME_FIELD_HTML);
+    const input = doc.getElementById('resume');
+    const file = new File(['%PDF-1.4 content'], 'my-resume.pdf', { type: 'application/pdf' });
+    const profile = { personal: { firstName: 'Ada', lastName: 'Lovelace' } };
+
+    uploadGreenhouseResume(doc, file, profile, { resumeFileName: 'useMyName' });
+
+    expect(input.files[0].name).toBe('Ada_Lovelace_Resume.pdf');
+  });
 });
