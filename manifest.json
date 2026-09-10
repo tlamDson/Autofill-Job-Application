@@ -14,12 +14,12 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["src/content.js"],
+      "js": ["content.js"],
       "run_at": "document_idle"
     },
     {
       "matches": ["<all_urls>"],
-      "js": ["src/injected.js"],
+      "js": ["injected.js"],
       "run_at": "document_idle",
       "world": "MAIN"
     }

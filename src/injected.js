@@ -10,13 +10,13 @@
  * (isolated world) and posts FILL_RESULT back.
  */
 
-// NOTE: In the MAIN world, we cannot use ES module imports (Chrome MV3 content
-// scripts in MAIN world do not support type:module for injected scripts).
-// All dependencies must be available in the global scope or bundled.
-//
-// For now this file uses dynamic import-like IIFEs that will be replaced
-// by a bundling step in a future phase. The functional logic is exported
-// to a separate module for testability.
+// NOTE: In the MAIN world, we cannot use ES module imports at runtime (Chrome
+// MV3 content scripts declared in manifest.json — MAIN or ISOLATED world — do
+// not support type:module). This file is written as an ES module and bundled
+// to a dependency-free IIFE by scripts/build.mjs before being referenced from
+// manifest.json; the static import below is inlined at build time.
+
+import { runGenericFill } from './adapters/generic.js';
 
 const MSG_AUTOFILL_TRIGGER = 'AUTOFILL_TRIGGER';
 const MSG_FILL_RESULT = 'FILL_RESULT';
@@ -36,9 +36,6 @@ const MSG_FILL_RESULT = 'FILL_RESULT';
     const { requestId, profile, settings } = event.data;
 
     try {
-      // Dynamic import of the generic adapter (works in bundled output)
-      // In development, this file is loaded alongside the bundled adapter.
-      const { runGenericFill } = await import('./adapters/generic.js');
       const result = await runGenericFill(document, profile, settings);
 
       window.postMessage({
