@@ -289,6 +289,41 @@ export async function fillWorkdayRepeatedSection(doc, sectionId, items, fillFn) 
   return { filled: totalFilled, skipped: totalSkipped };
 }
 
+// ─── Click intercept for Workday resume upload ───────────────────────────────
+
+/**
+ * Override `HTMLInputElement.prototype.click` so that when Workday's overlay
+ * button dynamically creates a file input and calls `.click()` on it, we
+ * intercept and attach the file programmatically instead of opening the
+ * native file dialog.
+ *
+ * @param {Document}  doc
+ * @param {File}      file  — the file to attach when any file input is clicked
+ * @returns {Function}      — cleanup: call to restore the original click
+ */
+export function interceptWorkdayFileInput(doc, file) {
+  const win = doc.defaultView || doc.ownerDocument?.defaultView;
+  if (!win) return () => {};
+
+  const InputProto = win.HTMLInputElement.prototype;
+  const originalClick = InputProto.click;
+
+  InputProto.click = function interceptedClick() {
+    if (this.type === 'file') {
+      // Attach the file instead of opening the native picker
+      attachFileToInput(this, file);
+      return;
+    }
+    // Not a file input — call original
+    return originalClick.call(this);
+  };
+
+  // Return cleanup function
+  return function cleanup() {
+    InputProto.click = originalClick;
+  };
+}
+
 // ─── fillWorkdayForm ─────────────────────────────────────────────────────────
 
 /**
