@@ -19,6 +19,9 @@
 import { loadProfile } from './profile/store.js';
 import { loadSettings } from './settings/store.js';
 import { createFormObserver } from './observer.js';
+import { collectOpenQuestions, createReviewPanel, handleGenerateAI } from './complexAnswer.js';
+import { fillOpenQuestion } from './qa.js';
+import { setNativeValue } from './filler.js';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -55,6 +58,21 @@ export function makeMessageHandler({ runFill }) {
       });
 
     return true; // async response
+  };
+}
+
+/**
+ * Map settings.ai (provider/apiKey/model) to the flat shape background.js's
+ * validateAISettings/callOpenAI/callGemini expect (aiProvider/aiApiKey/aiModel).
+ *
+ * @param {{provider?: string, apiKey?: string, model?: string}} [ai]
+ * @returns {{aiProvider?: string, aiApiKey?: string, aiModel?: string}}
+ */
+export function toAIRequestSettings(ai) {
+  return {
+    aiProvider: ai?.provider,
+    aiApiKey: ai?.apiKey,
+    aiModel: ai?.model,
   };
 }
 
@@ -148,7 +166,73 @@ if (
 
     if (settings.continuousMultipage) armMultipageObserver();
 
+    await maybeShowReviewPanel(profile, settings);
+
     return result;
+  }
+
+  /**
+   * After a fill pass, resolve any open (long-text) questions:
+   *  1. Try the savedAnswers cache first — silent, no review needed.
+   *  2. Show a review panel for whatever is still blank (cache misses).
+   *  3. If autoAnswerOpenQuestions is on, draft those via AI into both the
+   *     panel textarea and the real field — the panel still lets the user
+   *     edit/confirm before they submit the form themselves.
+   * Safe to call repeatedly (e.g. once per multipage re-fill): createReviewPanel
+   * is idempotent and collectOpenQuestions naturally excludes already-answered fields.
+   */
+  async function maybeShowReviewPanel(profile, settings) {
+    const candidates = collectOpenQuestions(document, []);
+    for (const q of candidates) {
+      fillOpenQuestion(q.el, q.label, profile.savedAnswers);
+    }
+
+    const openQuestions = collectOpenQuestions(document, []); // re-scan: cache hits are now non-empty
+    if (openQuestions.length === 0) return;
+
+    const panel = createReviewPanel(
+      document,
+      openQuestions,
+      {
+        onAccept(i, answer) {
+          const q = openQuestions[i];
+          if (q?.el) setNativeValue(q.el, answer);
+        },
+        onGenerateAI(i, label) {
+          const item = panel.querySelector(`[data-index="${i}"]`);
+          handleGenerateAI({
+            question: label,
+            draftTextarea: item?.querySelector('.autofill-q-draft'),
+            aiButton: item?.querySelector('.autofill-ai'),
+            profile,
+            settings: toAIRequestSettings(settings.ai),
+            sendMessage: (msg) => chrome.runtime.sendMessage(msg),
+          });
+        },
+      },
+      { showAIButton: settings.showGenerateAIButton }
+    );
+
+    document.body.appendChild(panel);
+
+    if (settings.autoAnswerOpenQuestions) {
+      for (let i = 0; i < openQuestions.length; i++) {
+        const q = openQuestions[i];
+        const item = panel.querySelector(`[data-index="${i}"]`);
+        const draftTextarea = item?.querySelector('.autofill-q-draft');
+        await handleGenerateAI({
+          question: q.label,
+          draftTextarea,
+          aiButton: item?.querySelector('.autofill-ai'),
+          profile,
+          settings: toAIRequestSettings(settings.ai),
+          sendMessage: (msg) => chrome.runtime.sendMessage(msg),
+        });
+        if (q.el && draftTextarea?.value) {
+          setNativeValue(q.el, draftTextarea.value);
+        }
+      }
+    }
   }
 
   chrome.runtime.onMessage.addListener(makeMessageHandler({ runFill }));

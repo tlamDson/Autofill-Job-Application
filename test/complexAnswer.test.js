@@ -157,4 +157,18 @@ describe('createReviewPanel', () => {
     const panel = createReviewPanel(doc, SAMPLE_QUESTIONS, {});
     expect(panel.textContent).toContain('2');
   });
+
+  it('omits the Generate with AI button when options.showAIButton is false', () => {
+    const doc = makeDoc('');
+    const panel = createReviewPanel(doc, SAMPLE_QUESTIONS, {}, { showAIButton: false });
+    expect(panel.querySelectorAll('.autofill-ai').length).toBe(0);
+    // Accept buttons should still be present
+    expect(panel.querySelectorAll('.autofill-accept').length).toBe(SAMPLE_QUESTIONS.length);
+  });
+
+  it('shows the Generate with AI button by default (options omitted)', () => {
+    const doc = makeDoc('');
+    const panel = createReviewPanel(doc, SAMPLE_QUESTIONS, {});
+    expect(panel.querySelectorAll('.autofill-ai').length).toBe(SAMPLE_QUESTIONS.length);
+  });
 });

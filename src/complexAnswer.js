@@ -100,10 +100,13 @@ const PANEL_ID = 'autofill-review-panel';
  * @param {Document} doc
  * @param {{el: Element|null, label: string}[]} questions
  * @param {{onAccept?: (i, answer) => void, onGenerateAI?: (i, label) => void}} callbacks
+ * @param {{showAIButton?: boolean}} [options] — showAIButton (default true) controls
+ *        whether the "Generate with AI" button is rendered, per settings.showGenerateAIButton
  * @returns {Element}
  */
-export function createReviewPanel(doc, questions, callbacks = {}) {
+export function createReviewPanel(doc, questions, callbacks = {}, options = {}) {
   const { onAccept, onGenerateAI } = callbacks;
+  const { showAIButton = true } = options;
 
   // Remove any existing panel (idempotent)
   const existing = doc.getElementById(PANEL_ID);
@@ -154,16 +157,18 @@ export function createReviewPanel(doc, questions, callbacks = {}) {
     });
     actions.appendChild(acceptBtn);
 
-    const aiBtn = doc.createElement('button');
-    aiBtn.type = 'button';
-    aiBtn.className = 'autofill-ai';
-    aiBtn.textContent = 'Generate with AI';
-    aiBtn.addEventListener('click', () => {
-      if (typeof onGenerateAI === 'function') {
-        onGenerateAI(i, q.label);
-      }
-    });
-    actions.appendChild(aiBtn);
+    if (showAIButton) {
+      const aiBtn = doc.createElement('button');
+      aiBtn.type = 'button';
+      aiBtn.className = 'autofill-ai';
+      aiBtn.textContent = 'Generate with AI';
+      aiBtn.addEventListener('click', () => {
+        if (typeof onGenerateAI === 'function') {
+          onGenerateAI(i, q.label);
+        }
+      });
+      actions.appendChild(aiBtn);
+    }
 
     item.appendChild(actions);
     panel.appendChild(item);

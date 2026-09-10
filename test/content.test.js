@@ -15,6 +15,7 @@ import { createChromeMock } from './helpers/chromeMock.js';
 import {
   makeMessageHandler,
   postFillRequest,
+  toAIRequestSettings,
 } from '../src/content.js';
 
 describe('makeMessageHandler', () => {
@@ -117,5 +118,17 @@ describe('postFillRequest', () => {
     expect(sentMsg.msg.type).toBe('AUTOFILL_TRIGGER');
     expect(result.ok).toBe(true);
     expect(result.filled).toBe(2);
+  });
+});
+
+describe('toAIRequestSettings', () => {
+  it('maps settings.ai (provider/apiKey/model) to the flat shape background.js expects', () => {
+    const result = toAIRequestSettings({ provider: 'openai', apiKey: 'sk-test', model: 'gpt-4o-mini' });
+    expect(result).toEqual({ aiProvider: 'openai', aiApiKey: 'sk-test', aiModel: 'gpt-4o-mini' });
+  });
+
+  it('does not throw when ai is undefined', () => {
+    const result = toAIRequestSettings(undefined);
+    expect(result).toEqual({ aiProvider: undefined, aiApiKey: undefined, aiModel: undefined });
   });
 });
