@@ -8,6 +8,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { JSDOM } from 'jsdom';
 import { buildFillPlan, fillField } from '../../src/adapters/generic.js';
+import { createEmptyProfile } from '../../src/profile/schema.js';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -17,17 +18,27 @@ function makeDoc(html) {
   }).window.document;
 }
 
-/** Minimal profile for testing */
+/** Minimal profile for testing, built on the real nested schema */
 const PROFILE = {
-  firstName: 'Ada',
-  lastName: 'Lovelace',
-  email: 'ada@example.com',
-  phone: '+14155550100',
-  linkedinUrl: 'https://linkedin.com/in/ada',
-  city: 'San Francisco',
-  state: 'CA',
-  postalCode: '94103',
-  country: 'United States',
+  ...createEmptyProfile(),
+  personal: {
+    ...createEmptyProfile().personal,
+    firstName: 'Ada',
+    lastName: 'Lovelace',
+    email: 'ada@example.com',
+    phone: '+14155550100',
+    address: {
+      ...createEmptyProfile().personal.address,
+      city: 'San Francisco',
+      state: 'CA',
+      postalCode: '94103',
+      country: 'United States',
+    },
+  },
+  links: {
+    ...createEmptyProfile().links,
+    linkedin: 'https://linkedin.com/in/ada',
+  },
 };
 
 // ─── buildFillPlan ────────────────────────────────────────────────────────────
@@ -78,7 +89,7 @@ describe('buildFillPlan', () => {
   it('resolves nested profile paths like workHistory[0].company', () => {
     const profileWithWork = {
       ...PROFILE,
-      workHistory: [{ company: 'Acme Corp', jobTitle: 'Engineer' }],
+      workHistory: [{ company: 'Acme Corp', title: 'Engineer' }],
     };
     // Company classification requires sectionHint='workHistory'
     // _detectSection looks for h1-h4/legend text with "experience|employment|..."
