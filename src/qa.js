@@ -112,3 +112,96 @@ export function questionSimilarity(a, b) {
   const union = setA.size + setB.size - intersection;
   return intersection / union;
 }
+
+// ─── savedAnswers cache ───────────────────────────────────────────────────────
+
+const DEFAULT_SIMILARITY_THRESHOLD = 0.5;
+
+/**
+ * Save a question+answer pair into the savedAnswers store.
+ * Keyed by `questionFingerprint`. Does not mutate the input object.
+ *
+ * @param {string} question
+ * @param {string} answer
+ * @param {object} savedAnswers  — current store (fingerprint → {question, answer})
+ * @returns {object}             — new savedAnswers with the entry added/updated
+ */
+export function saveAnswer(question, answer, savedAnswers) {
+  const fp = questionFingerprint(question);
+  return {
+    ...savedAnswers,
+    [fp]: { question, answer },
+  };
+}
+
+/**
+ * Look up the best matching cached answer for a question.
+ *
+ * Algorithm:
+ *  1. Exact fingerprint match → score 1.0 (fast path).
+ *  2. Otherwise scan all entries and pick the highest Jaccard similarity.
+ *  3. If best score < threshold → return null (no useful match).
+ *
+ * @param {string} question
+ * @param {object} savedAnswers
+ * @param {number} [threshold=0.5]
+ * @returns {{answer: string, score: number} | null}
+ */
+export function lookupAnswer(question, savedAnswers, threshold = DEFAULT_SIMILARITY_THRESHOLD) {
+  if (!savedAnswers || Object.keys(savedAnswers).length === 0) return null;
+
+  // Exact fingerprint match
+  const fp = questionFingerprint(question);
+  if (savedAnswers[fp]) {
+    return { answer: savedAnswers[fp].answer, score: 1.0 };
+  }
+
+  // Fuzzy scan
+  let bestScore = 0;
+  let bestAnswer = null;
+
+  for (const entry of Object.values(savedAnswers)) {
+    const score = questionSimilarity(question, entry.question);
+    if (score > bestScore) {
+      bestScore = score;
+      bestAnswer = entry.answer;
+    }
+  }
+
+  if (bestScore >= threshold) {
+    return { answer: bestAnswer, score: bestScore };
+  }
+
+  return null;
+}
+
+// ─── fillOpenQuestion ─────────────────────────────────────────────────────────
+
+/**
+ * Fill a textarea or text input from the savedAnswers cache.
+ *
+ * @param {HTMLElement} inputEl       — the textarea or input element
+ * @param {string}      question      — the label text for this field
+ * @param {object}      savedAnswers
+ * @param {number}      [threshold]
+ * @returns {boolean}  true if filled, false if no cache hit
+ */
+export function fillOpenQuestion(inputEl, question, savedAnswers, threshold) {
+  if (!inputEl || !question) return false;
+
+  const hit = lookupAnswer(question, savedAnswers, threshold);
+  if (!hit) return false;
+
+  // Use setNativeValue pattern inline (qa.js avoids importing filler.js to stay pure)
+  const proto = inputEl.constructor?.prototype ?? Object.getPrototypeOf(inputEl);
+  const descriptor = Object.getOwnPropertyDescriptor(proto, 'value');
+  if (descriptor && descriptor.set) {
+    descriptor.set.call(inputEl, hit.answer);
+  } else {
+    inputEl.value = hit.answer;
+  }
+  inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+  inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+
+  return true;
+}
