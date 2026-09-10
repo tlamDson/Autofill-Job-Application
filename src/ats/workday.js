@@ -191,6 +191,104 @@ export function uploadWorkdayResume(doc, file) {
   return true;
 }
 
+// ─── Multi-step detection ─────────────────────────────────────────────────────
+
+/**
+ * Detect which Workday form step is currently visible by looking for
+ * known data-automation-id markers.
+ *
+ * @param {Document} doc
+ * @returns {string|null}  step name: 'myInformation' | 'experience' | 'education' |
+ *                          'selfIdentify' | 'voluntaryDisclosures' | 'review' | null
+ */
+export function detectWorkdayStep(doc) {
+  if (doc.querySelector('[data-automation-id="legalNameSection"]')) return 'myInformation';
+  if (doc.querySelector('[data-automation-id="workExperienceSection"]')) return 'experience';
+  if (doc.querySelector('[data-automation-id="educationSection"]')) return 'education';
+  if (doc.querySelector('[data-automation-id="selfIdentifySection"]')) return 'selfIdentify';
+  if (doc.querySelector('[data-automation-id="voluntaryDisclosuresSection"]')) return 'voluntaryDisclosures';
+  if (doc.querySelector('[data-automation-id="reviewSection"]')) return 'review';
+  return null;
+}
+
+// ─── Repeated section filler ──────────────────────────────────────────────────
+
+/**
+ * Map from sectionId to the Add button and entry automation IDs.
+ */
+const SECTION_REGISTRY = {
+  workExperienceSection: {
+    addButtonId: 'addWorkExperience',
+    entryId: 'workExperienceEntry',
+  },
+  educationSection: {
+    addButtonId: 'addEducation',
+    entryId: 'educationEntry',
+  },
+};
+
+/**
+ * Fill a Workday repeated section (e.g. work experience, education).
+ *
+ * For each item:
+ *  1. Count existing entries; if needed, click "Add" to create new ones.
+ *  2. Get the entry element at the correct position.
+ *  3. Call fillFn(entryEl, item) to fill the fields inside.
+ *
+ * @param {Document}  doc
+ * @param {string}    sectionId   — data-automation-id of the section container
+ * @param {object[]}  items       — array of profile items (work history entries, etc.)
+ * @param {Function}  fillFn      — async (entryEl, item) → {filled, skipped}
+ * @returns {Promise<{filled: number, skipped: number}>}
+ */
+export async function fillWorkdayRepeatedSection(doc, sectionId, items, fillFn) {
+  let totalFilled = 0;
+  let totalSkipped = 0;
+
+  const section = doc.querySelector(`[data-automation-id="${sectionId}"]`);
+  if (!section || items.length === 0) return { filled: 0, skipped: 0 };
+
+  const registry = SECTION_REGISTRY[sectionId] || {};
+  const entryId = registry.entryId;
+  const addButtonId = registry.addButtonId;
+
+  for (let i = 0; i < items.length; i++) {
+    // Get existing entries
+    const existingEntries = entryId
+      ? section.querySelectorAll(`[data-automation-id="${entryId}"]`)
+      : [];
+
+    // If we need more entries, click "Add"
+    if (existingEntries.length <= i) {
+      const addBtn = addButtonId
+        ? section.querySelector(`[data-automation-id="${addButtonId}"]`)
+        : null;
+      if (addBtn) {
+        addBtn.click();
+        // Wait for DOM update
+        await new Promise((r) => setTimeout(r, 0));
+      }
+    }
+
+    // Re-query after potential "Add" click
+    const entries = entryId
+      ? section.querySelectorAll(`[data-automation-id="${entryId}"]`)
+      : [];
+    const entryEl = entries[i] || section; // fallback to section if no specific entry
+
+    try {
+      const result = await fillFn(entryEl, items[i]);
+      totalFilled += result?.filled ?? 0;
+      totalSkipped += result?.skipped ?? 0;
+    } catch (err) {
+      console.warn('[Autofill:workday] fillRepeatedSection error', sectionId, i, err);
+      totalSkipped++;
+    }
+  }
+
+  return { filled: totalFilled, skipped: totalSkipped };
+}
+
 // ─── fillWorkdayForm ─────────────────────────────────────────────────────────
 
 /**
