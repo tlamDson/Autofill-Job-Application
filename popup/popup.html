@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Autofill Job Application</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="popup-container">
+    <header class="popup-header">
+      <h1 class="popup-title">Autofill</h1>
+      <a href="../options/index.html" target="_blank" class="settings-link" title="Open settings">⚙</a>
+    </header>
+
+    <main class="popup-main">
+      <button id="autofill-btn" class="btn btn-primary" type="button">
+        <span class="btn-icon" aria-hidden="true">▶</span>
+        <span class="btn-label">Autofill</span>
+      </button>
+
+      <div id="status-area" class="status-area" aria-live="polite" aria-atomic="true">
+        <!-- Status messages rendered here by JS -->
+      </div>
+    </main>
+
+    <footer class="popup-footer">
+      <a href="../options/index.html" target="_blank">Edit profile</a>
+    </footer>
+  </div>
+  <script src="popup.js" type="module"></script>
+</body>
+</html>
