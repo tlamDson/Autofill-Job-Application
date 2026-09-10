@@ -105,6 +105,68 @@ export function fillSelect(el, value) {
   el.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
+// ─── selectDeclineOption ──────────────────────────────────────────────────────
+
+/**
+ * Patterns matching a "decline to answer" style option, as commonly worded
+ * on EEO/demographic questions (e.g. "I don't wish to answer",
+ * "Decline to self-identify"). Extracted from what src/ats/lever.js and
+ * src/ats/greenhouse.js each independently duplicated.
+ */
+export const DECLINE_PATTERNS = /decline|prefer not|don.?t wish|not\s+to\s+answer|not\s+disclosed|choose\s+not/i;
+
+/**
+ * Select a "decline to answer" option on an EEO-style field, used when the
+ * user's profile explicitly has an empty string for a decline-eligible key
+ * (as opposed to `null`/`undefined`, which means "no opinion, skip").
+ *
+ * Only acts on <select> and radio-group elements — real EEO/demographic
+ * questions are overwhelmingly rendered as one or the other. Returns false
+ * (rather than guessing) when no option matches the decline wording.
+ *
+ * @param {HTMLElement} el
+ * @returns {boolean}
+ */
+export function selectDeclineOption(el) {
+  const tagName = el.tagName.toLowerCase();
+
+  if (tagName === 'select') {
+    const declineOpt = Array.from(el.options).find((o) => DECLINE_PATTERNS.test(o.text));
+    if (!declineOpt) return false;
+    el.value = declineOpt.value;
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  }
+
+  if ((el.type || '').toLowerCase() === 'radio') {
+    const doc = el.ownerDocument;
+    const name = el.getAttribute('name');
+    const escapedName = name ? name.replace(/"/g, '\\"') : '';
+    const radios = name
+      ? Array.from(doc.querySelectorAll(`input[type="radio"][name="${escapedName}"]`))
+      : [el];
+    const declineRadio = radios.find((r) => DECLINE_PATTERNS.test(r.value) || DECLINE_PATTERNS.test(_radioLabelText(r)));
+    if (!declineRadio) return false;
+    declineRadio.checked = true;
+    declineRadio.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  }
+
+  return false;
+}
+
+/** Best-effort label lookup for a radio input, for decline-wording matching. */
+function _radioLabelText(radio) {
+  const doc = radio.ownerDocument;
+  if (radio.id) {
+    const escapedId = radio.id.replace(/"/g, '\\"');
+    const label = doc.querySelector(`label[for="${escapedId}"]`);
+    if (label) return label.textContent;
+  }
+  const wrappingLabel = radio.closest('label');
+  return wrappingLabel ? wrappingLabel.textContent : '';
+}
+
 // ─── P1.13 — attachFileToInput ───────────────────────────────────────────────
 
 /**

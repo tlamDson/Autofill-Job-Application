@@ -11,8 +11,18 @@
  */
 
 import { buildContext, classifyField, isFillable } from '../matcher.js';
-import { setNativeValue, fillSelect, fillCombobox } from '../filler.js';
+import { setNativeValue, fillSelect, fillCombobox, selectDeclineOption } from '../filler.js';
 import { isFieldEnabled } from '../settings/fieldGroups.js';
+
+/**
+ * Keys where an explicit empty string in the profile means "decline to
+ * answer" (as opposed to `null`/`undefined`, which means "no opinion, don't
+ * touch this field"). Limited to EEO/demographic questions, where a real
+ * "decline" option is a standard, expected choice — an empty string for,
+ * say, a name or school field has no such equivalent and should just be
+ * skipped.
+ */
+const DECLINE_ELIGIBLE_KEYS = new Set(['gender', 'race', 'veteranStatus', 'disabilityStatus', 'hispanicLatino']);
 
 // ─── Profile value resolution ─────────────────────────────────────────────────
 
@@ -38,6 +48,7 @@ const KEY_TO_PROFILE_PATH = {
   github: 'links.github',
   portfolio: 'links.portfolio',
   website: 'links.website',
+  pronouns: 'personal.pronouns',
   // Education [0]
   school: 'education.0.school',
   degree: 'education.0.degree',
@@ -54,7 +65,7 @@ const KEY_TO_PROFILE_PATH = {
   workLocation: 'workHistory.0.location',
   // Work auth
   needsSponsorship: 'workAuthorization.needsSponsorship',
-  authorizedToWork: '__computed_authorizedToWork',
+  authorizedToWork: 'workAuthorization.authorizedToWork',
   visaStatus: 'workAuthorization.visaStatus',
   // EEO
   gender: 'eeo.gender',
@@ -65,6 +76,8 @@ const KEY_TO_PROFILE_PATH = {
   // Compensation
   desiredSalary: 'compensation.desiredSalaryMin',
   noticePeriod: 'compensation.noticePeriod',
+  // Consent
+  termsAgreement: 'consents.agreeToTerms',
 };
 
 /**
@@ -96,12 +109,6 @@ function getProfileValue(key, profile) {
     // Extract +XX from phone E.164
     const m = (personal.phone || '').match(/^(\+\d{1,3})/);
     return m ? m[1] : undefined;
-  }
-  if (key === '__computed_authorizedToWork' || key === 'authorizedToWork') {
-    // authorizedToWorkInCountry is keyed by the candidate's own country
-    const country = personal.address?.country;
-    const map = profile.workAuthorization?.authorizedToWorkInCountry || {};
-    return country ? map[country] : undefined;
   }
 
   const path = KEY_TO_PROFILE_PATH[key];
@@ -162,9 +169,24 @@ export function buildFillPlan(doc, profile, settings = {}, stats) {
     if (alreadyHasValue(el)) continue;
 
     const value = getProfileValue(key, profile);
-    if (value == null || value === '') continue;
 
-    plan.push({ el, key, value });
+    // Consent checkboxes are only ever auto-ticked on an explicit, deliberate
+    // opt-in — false/null/undefined all mean "leave this field alone".
+    if (key === 'termsAgreement') {
+      if (value !== true) continue;
+      plan.push({ el, key, value });
+      continue;
+    }
+
+    // An explicit empty string on a decline-eligible (EEO/demographic) key
+    // means "decline to answer" — a real, expected choice on such forms —
+    // rather than "no value available", which is what an empty string means
+    // for every other field.
+    const declined = value === '' && DECLINE_ELIGIBLE_KEYS.has(key);
+    if (value == null) continue;
+    if (value === '' && !declined) continue;
+
+    plan.push({ el, key, value, declined });
   }
 
   return plan;
@@ -180,12 +202,15 @@ export function buildFillPlan(doc, profile, settings = {}, stats) {
  * @param {string}       key       — classified profile key
  * @param {any}          value     — profile value to fill
  * @param {Document}     doc       — owning document (for radio siblings)
+ * @param {boolean}      [declined] — when true, select a "decline to answer"
+ *   option instead of `value` (see DECLINE_ELIGIBLE_KEYS in buildFillPlan)
  * @returns {Promise<boolean>} whether the field was actually filled — false
  *   (rather than a thrown error) is how a combobox with no matching option
  *   reports failure, so callers must check this instead of assuming any
  *   non-throwing call succeeded.
  */
-export async function fillField(el, key, value, doc) {
+export async function fillField(el, key, value, doc, declined = false) {
+  if (declined) return selectDeclineOption(el);
   if (value == null || value === '') return false;
 
   const tagName = el.tagName.toLowerCase();
@@ -254,9 +279,9 @@ export async function runGenericFill(doc, profile, settings = {}) {
   let filled = 0;
   let skipped = 0;
 
-  for (const { el, key, value } of plan) {
+  for (const { el, key, value, declined } of plan) {
     try {
-      const ok = await fillField(el, key, value, doc);
+      const ok = await fillField(el, key, value, doc, declined);
       if (ok) filled++;
       else skipped++;
     } catch (err) {

@@ -37,6 +37,22 @@ describe('workAuth section', () => {
     expect(onSave).toHaveBeenCalled();
     expect(onSave.mock.calls[0][0].workAuthorization.needsSponsorship).toBe(true);
   });
+
+  it('renders authorizedToWork unchecked when null (not set)', async () => {
+    const { renderWorkAuth } = await imp('workAuth');
+    renderWorkAuth(document.body, { workAuthorization: { authorizedToWork: null } });
+    expect(document.querySelector('[data-field="workAuthorization.authorizedToWork"]').checked).toBe(false);
+  });
+
+  it('calls onSave with authorizedToWork: true when checked', async () => {
+    const { renderWorkAuth } = await imp('workAuth');
+    const onSave = vi.fn();
+    renderWorkAuth(document.body, { workAuthorization: { authorizedToWork: null } }, onSave);
+    const cb = document.querySelector('[data-field="workAuthorization.authorizedToWork"]');
+    cb.checked = true;
+    cb.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(onSave.mock.calls[0][0].workAuthorization.authorizedToWork).toBe(true);
+  });
 });
 
 // ─── EEO ─────────────────────────────────────────────────────────────────────
@@ -66,6 +82,49 @@ describe('eeo section', () => {
     input.dispatchEvent(new Event('change', { bubbles: true }));
     expect(onSave).toHaveBeenCalled();
     expect(onSave.mock.calls[0][0].eeo.gender).toBe('Male');
+  });
+
+  it('renders a hispanicLatino field', async () => {
+    const { renderEEO } = await imp('eeo');
+    renderEEO(document.body, {});
+    expect(document.querySelector('[data-field="eeo.hispanicLatino"]')).toBeTruthy();
+  });
+
+  it('offers a canonical "Decline to self-identify" option on race', async () => {
+    const { renderEEO } = await imp('eeo');
+    renderEEO(document.body, {});
+    const select = document.querySelector('[data-field="eeo.race"]');
+    const optionTexts = Array.from(select.options).map((o) => o.value);
+    expect(optionTexts).toContain('Decline to self-identify');
+  });
+});
+
+// ─── Consents ────────────────────────────────────────────────────────────────
+
+describe('consents section', () => {
+  it('renders agreeToTerms checkbox, unchecked by default', async () => {
+    const { renderConsents } = await imp('consents');
+    renderConsents(document.body, {});
+    const cb = document.querySelector('[data-field="consents.agreeToTerms"]');
+    expect(cb).toBeTruthy();
+    expect(cb.checked).toBe(false);
+  });
+
+  it('pre-fills from profile', async () => {
+    const { renderConsents } = await imp('consents');
+    renderConsents(document.body, { consents: { agreeToTerms: true } });
+    expect(document.querySelector('[data-field="consents.agreeToTerms"]').checked).toBe(true);
+  });
+
+  it('calls onSave with updated agreeToTerms on change', async () => {
+    const { renderConsents } = await imp('consents');
+    const onSave = vi.fn();
+    renderConsents(document.body, { consents: { agreeToTerms: false } }, onSave);
+    const cb = document.querySelector('[data-field="consents.agreeToTerms"]');
+    cb.checked = true;
+    cb.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(onSave).toHaveBeenCalled();
+    expect(onSave.mock.calls[0][0].consents.agreeToTerms).toBe(true);
   });
 });
 

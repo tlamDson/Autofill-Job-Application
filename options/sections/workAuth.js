@@ -13,6 +13,28 @@ export function renderWorkAuth(container, profile, onSave) {
   h2.textContent = 'Work Authorization';
   section.appendChild(h2);
 
+  // authorizedToWork checkbox
+  const authWrapper = document.createElement('div');
+  authWrapper.className = 'field-wrapper';
+  const authLabel = document.createElement('label');
+  authLabel.textContent = 'Authorized to work in the US';
+  const authCb = document.createElement('input');
+  authCb.type = 'checkbox';
+  authCb.setAttribute('data-field', 'workAuthorization.authorizedToWork');
+  authCb.checked = wa.authorizedToWork === true;
+  authCb.addEventListener('change', () => {
+    profile.workAuthorization.authorizedToWork = authCb.checked;
+    if (onSave) onSave(JSON.parse(JSON.stringify(profile)));
+  });
+  authLabel.prepend(authCb);
+  authWrapper.appendChild(authLabel);
+  section.appendChild(authWrapper);
+
+  const authNote = document.createElement('p');
+  authNote.textContent = 'Unchecked means this field is left blank on forms rather than answered "No" — check it once you know the answer.';
+  authNote.style.fontSize = '12px';
+  section.appendChild(authNote);
+
   // needsSponsorship checkbox
   const wrapper = document.createElement('div');
   wrapper.className = 'field-wrapper';

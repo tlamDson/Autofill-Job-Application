@@ -14,6 +14,7 @@ import { renderEducation } from './sections/education.js';
 import { renderWorkHistory } from './sections/workHistory.js';
 import { renderWorkAuth } from './sections/workAuth.js';
 import { renderEEO } from './sections/eeo.js';
+import { renderConsents } from './sections/consents.js';
 import { renderCompensation } from './sections/compensation.js';
 import { renderSkills } from './sections/skills.js';
 import { renderSettings } from './sections/settings.js';
@@ -64,6 +65,7 @@ async function init() {
   renderWorkHistory(panelProfile, profile, onSaveProfile);
   renderWorkAuth(panelProfile, profile, onSaveProfile);
   renderEEO(panelProfile, profile, onSaveProfile);
+  renderConsents(panelProfile, profile, onSaveProfile);
   renderCompensation(panelProfile, profile, onSaveProfile);
   renderSkills(panelProfile, profile, onSaveProfile);
 

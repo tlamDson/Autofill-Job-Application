@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { JSDOM } from 'jsdom';
-import { setNativeValue, fillSelect, detectDateRole, fillSplitNumber, fillCombobox, attachFileToInput, resolveResumeFileName } from '../src/filler.js';
+import { setNativeValue, fillSelect, detectDateRole, fillSplitNumber, fillCombobox, attachFileToInput, resolveResumeFileName, selectDeclineOption } from '../src/filler.js';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -618,5 +618,97 @@ describe('resolveResumeFileName', () => {
     const emptyProfile = { personal: { firstName: '', lastName: '' } };
     const result = resolveResumeFileName(emptyProfile, { resumeFileName: 'useMyName' }, 'my-cv.pdf');
     expect(result).toBe('my-cv.pdf');
+  });
+});
+
+// ─── selectDeclineOption ──────────────────────────────────────────────────────
+
+describe('selectDeclineOption', () => {
+  it('selects a decline-worded option on a <select>', () => {
+    const doc = makeDoc(`
+      <select>
+        <option value="">--</option>
+        <option value="male">Male</option>
+        <option value="female">Female</option>
+        <option value="decline">I don't wish to answer</option>
+      </select>
+    `);
+    const select = doc.querySelector('select');
+    let changed = false;
+    select.addEventListener('change', () => (changed = true));
+
+    const result = selectDeclineOption(select);
+
+    expect(result).toBe(true);
+    expect(select.value).toBe('decline');
+    expect(changed).toBe(true);
+  });
+
+  it('recognizes "Decline to self-identify" wording', () => {
+    const doc = makeDoc(`
+      <select>
+        <option value="white">White</option>
+        <option value="decline">Decline to self-identify</option>
+      </select>
+    `);
+    const result = selectDeclineOption(doc.querySelector('select'));
+    expect(result).toBe(true);
+    expect(doc.querySelector('select').value).toBe('decline');
+  });
+
+  it('returns false when no select option matches decline wording', () => {
+    const doc = makeDoc(`
+      <select>
+        <option value="yes">Yes</option>
+        <option value="no">No</option>
+      </select>
+    `);
+    const result = selectDeclineOption(doc.querySelector('select'));
+    expect(result).toBe(false);
+  });
+
+  it('selects a decline-worded radio by its value', () => {
+    const doc = makeDoc(`
+      <input type="radio" name="veteran" value="yes" />
+      <input type="radio" name="veteran" value="no" />
+      <input type="radio" name="veteran" value="I don't wish to answer" />
+    `);
+    const radios = doc.querySelectorAll('input[type="radio"]');
+
+    const result = selectDeclineOption(radios[0]);
+
+    expect(result).toBe(true);
+    expect(radios[2].checked).toBe(true);
+    expect(radios[0].checked).toBe(false);
+  });
+
+  it('selects a decline-worded radio by its associated label text', () => {
+    const doc = makeDoc(`
+      <input type="radio" name="disability" value="opt1" id="r1" />
+      <label for="r1">Yes</label>
+      <input type="radio" name="disability" value="opt2" id="r2" />
+      <label for="r2">Prefer not to answer</label>
+    `);
+    const radios = doc.querySelectorAll('input[type="radio"]');
+
+    const result = selectDeclineOption(radios[0]);
+
+    expect(result).toBe(true);
+    expect(radios[1].checked).toBe(true);
+  });
+
+  it('returns false for a radio group with no decline option', () => {
+    const doc = makeDoc(`
+      <input type="radio" name="veteran" value="yes" />
+      <input type="radio" name="veteran" value="no" />
+    `);
+    const result = selectDeclineOption(doc.querySelector('input[type="radio"]'));
+    expect(result).toBe(false);
+  });
+
+  it('returns false for element types it does not handle (e.g. combobox)', () => {
+    const doc = makeDoc('<input role="combobox" />');
+    const result = selectDeclineOption(doc.querySelector('input'));
+    expect(result).toBe(false);
   });
 });
