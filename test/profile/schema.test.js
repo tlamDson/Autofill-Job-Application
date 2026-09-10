@@ -48,6 +48,17 @@ describe('createEmptyProfile', () => {
     const p = createEmptyProfile();
     expect(p.workAuthorization.needsSponsorship).toBe(false);
   });
+
+  it('workAuthorization.authorizedToWork defaults to null (not set, not false)', () => {
+    const p = createEmptyProfile();
+    expect(p.workAuthorization.authorizedToWork).toBeNull();
+  });
+
+  it('has a consents section with agreeToTerms defaulting to false', () => {
+    const p = createEmptyProfile();
+    expect(p).toHaveProperty('consents');
+    expect(p.consents.agreeToTerms).toBe(false);
+  });
 });
 
 // ─── validateProfile ──────────────────────────────────────────────────────────
@@ -168,5 +179,31 @@ describe('normalizeProfile', () => {
     p.personal.firstName = '  Alice  ';
     normalizeProfile(p);
     expect(p.personal.firstName).toBe('  Alice  ');
+  });
+
+  it('migrates a legacy authorizedToWorkInCountry map (true for any country) to authorizedToWork: true', () => {
+    const p = createEmptyProfile();
+    p.workAuthorization.authorizedToWorkInCountry = { 'United States': true };
+    delete p.workAuthorization.authorizedToWork;
+    const n = normalizeProfile(p);
+    expect(n.workAuthorization.authorizedToWork).toBe(true);
+    expect(n.workAuthorization.authorizedToWorkInCountry).toBeUndefined();
+  });
+
+  it('migrates a legacy authorizedToWorkInCountry map (no true values) to authorizedToWork: null', () => {
+    const p = createEmptyProfile();
+    p.workAuthorization.authorizedToWorkInCountry = { Vietnam: false };
+    delete p.workAuthorization.authorizedToWork;
+    const n = normalizeProfile(p);
+    expect(n.workAuthorization.authorizedToWork).toBeNull();
+    expect(n.workAuthorization.authorizedToWorkInCountry).toBeUndefined();
+  });
+
+  it('does not override an already-set authorizedToWork during migration', () => {
+    const p = createEmptyProfile();
+    p.workAuthorization.authorizedToWork = false;
+    p.workAuthorization.authorizedToWorkInCountry = { 'United States': true };
+    const n = normalizeProfile(p);
+    expect(n.workAuthorization.authorizedToWork).toBe(false);
   });
 });

@@ -113,7 +113,7 @@ interface Profile {
 
   workAuthorization: {
     needsSponsorship: boolean;
-    authorizedToWorkInCountry: Record<string /* country code */, boolean>;
+    authorizedToWork: boolean | null;  // null = chưa trả lời -> bỏ qua field trên form, không đoán "No"
     visaStatus?: string;
   };
 
@@ -123,6 +123,12 @@ interface Profile {
     veteranStatus?: string;
     disabilityStatus?: string;
     hispanicLatino?: boolean;
+  };
+
+  consents: {
+    agreeToTerms: boolean;  // default false; chỉ tick checkbox "I agree to Terms/Privacy Policy" khi true.
+                             // Không bao giờ áp dụng cho background check / credit check / drug screen /
+                             // arbitration / at-will acknowledgment - matcher.js loại các câu đó ra hẳn.
   };
 
   education: {
@@ -285,9 +291,11 @@ extension/
 - **Fields to autofill** (Settings tab): toggle bật/tắt từng field theo `classifyField` key, gom theo 9 nhóm (Personal/Location/Links/Documents/Education/Work History/Work Authorization/EEO/Compensation), có master toggle theo nhóm (on/off/mixed). Field bị tắt được `buildFillPlan` bỏ qua và đếm riêng vào `skippedByUser`.
 - **AI Provider settings** (Settings tab): chọn provider (openai/gemini), API key (ẩn/hiện), model — thay cho việc phải set trực tiếp trong storage.
 
-**Nợ kỹ thuật còn tồn đọng (chưa nằm trong scope Settings tab vừa build, cần Phase riêng):**
-1. **Bug `_findNearbyText` vẫn chưa fix**: `buildContext()` trong `src/matcher.js` (dòng ~106, ~146) khởi tạo `nearbyText = ''` rồi check `if (!nearbyText)` để quyết định có chạy `_findNearbyText(el)` hay không — điều kiện này **luôn đúng** (nearbyText luôn rỗng tại thời điểm check), nên `_findNearbyText` luôn chạy kể cả khi `labelText` đã tìm được qua `label[for]`/wrapping-label/`aria-labelledby`. Hệ quả: text "nhiễu" từ DOM lân cận (VD field GitHub nằm gần heading "LinkedIn") vẫn lọt vào `_ctxText()` dùng để classify, có thể gây nhận nhầm field. Fix đúng: đổi điều kiện thành `if (!labelText)`. Chưa fix trong đợt Settings tab này vì nằm ngoài 9 task đã lên kế hoạch — cần task riêng + test trước khi merge.
-2. **Resume upload chưa nối vào runtime**: các hàm `upload*Resume(doc, file, profile, settings)` (Greenhouse/Lever/Ashby/iCIMS/Workday/SmartRecruiters) và `interceptWorkdayFileInput` chỉ được gọi trực tiếp từ unit test, không có chỗ nào trong `content.js`/`injected.js` gọi chúng khi chạy Autofill thật — nghĩa là toggle `resumeFileName` mới có tác dụng nếu/khi luồng upload này được nối vào pipeline chính. Cần: (a) quyết định resume file lấy từ đâu lúc runtime (`profile.resumeFiles`?), (b) map ATS đang active → đúng hàm `upload*Resume`, (c) gọi trong `runGenericFill`/adapter fill flow tương ứng.
+**Nợ kỹ thuật còn tồn đọng:**
+1. ~~Bug `_findNearbyText`~~ — đã fix (#47, merged vào `develop`): điều kiện guard đổi thành `if (!labelText)`.
+2. **Resume upload chưa nối vào runtime**: các hàm `upload*Resume(doc, file, profile, settings)` (Greenhouse/Lever/Ashby/iCIMS/Workday/SmartRecruiters) và `interceptWorkdayFileInput` chỉ được gọi trực tiếp từ unit test, không có chỗ nào trong `content.js`/`injected.js` gọi chúng khi chạy Autofill thật — nghĩa là toggle `resumeFileName` mới có tác dụng nếu/khi luồng upload này được nối vào pipeline chính. Cần: (a) quyết định resume file lấy từ đâu lúc runtime (`profile.resumeFiles`?), (b) map ATS đang active → đúng hàm `upload*Resume`, (c) gọi trong `runGenericFill`/adapter fill flow tương ứng. Đang lên kế hoạch làm PR riêng (`feature/resume-upload`).
 3. Extract keywords + resume match banner — cần đọc DOM trang mô tả job (không phải form), là luồng dữ liệu mới, không tái dùng matcher.js.
 4. Auto-open panel khi detect ATS — mở rộng `content.js`, cần quyết định UX (có thể gây khó chịu nếu luôn tự bật).
 5. Application tracker (submission view, add custom application) — lớn nhất, gần như 1 sub-feature riêng (cần lưu trữ lịch sử, có thể cần UI mới hoàn toàn) — nên tách thành Phase riêng nếu làm.
+6. Toàn bộ `src/ats/*` (adapter riêng cho Greenhouse/Lever/Workday/...) là dead code ở runtime — `injected.js` chỉ gọi `runGenericFill`, không có dispatcher nào gọi `detectATS`/`fillXForm`. `fillGreenhouseForm`'s Phase 1 còn key theo `[data-gh-input]`, thuộc tính không còn tồn tại trên template `job-boards.greenhouse.io` hiện tại — nên mọi field từng fill được trên trang Greenhouse thật đều đến từ generic heuristic, không phải adapter riêng. Không có kế hoạch hồi sinh layer này; đầu tư tiếp vào generic path.
+7. Package chưa có build pipeline thật cho tới #49 — `content.js`/`injected.js` dùng ES `import` nhưng khai báo trong `manifest.json` như classic content script (MV3 không hỗ trợ module ở đây), nên trước #49 extension **chưa từng chạy được** khi load unpacked thật.

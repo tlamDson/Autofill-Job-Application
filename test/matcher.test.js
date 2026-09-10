@@ -596,6 +596,42 @@ describe('classifyField — EEO', () => {
   });
 });
 
+describe('classifyField — pronouns', () => {
+  it('classifies "Pronouns" as pronouns', () => {
+    expect(classifyField(ctx('Pronouns'))).toBe('pronouns');
+  });
+  it('classifies "Preferred pronouns" as pronouns', () => {
+    expect(classifyField(ctx('Preferred pronouns'))).toBe('pronouns');
+  });
+});
+
+describe('classifyField — termsAgreement (checkbox only)', () => {
+  it('classifies a checkbox labeled "I agree to the Terms and Conditions"', () => {
+    expect(classifyField(ctx('I agree to the Terms and Conditions', { type: 'checkbox' }))).toBe('termsAgreement');
+  });
+  it('classifies a checkbox labeled "I agree to the Privacy Policy"', () => {
+    expect(classifyField(ctx('I agree to the Privacy Policy', { type: 'checkbox' }))).toBe('termsAgreement');
+  });
+  it('classifies "I consent to processing of my data" as termsAgreement', () => {
+    expect(classifyField(ctx('I consent to processing of my data', { type: 'checkbox' }))).toBe('termsAgreement');
+  });
+  it('does NOT classify the same label on a non-checkbox element', () => {
+    expect(classifyField(ctx('I agree to the Terms and Conditions', { type: 'text' }))).not.toBe('termsAgreement');
+  });
+  it('does NOT classify a background-check authorization checkbox', () => {
+    expect(classifyField(ctx('I agree to a background check', { type: 'checkbox' }))).not.toBe('termsAgreement');
+  });
+  it('does NOT classify an arbitration agreement checkbox', () => {
+    expect(classifyField(ctx('I agree to binding arbitration', { type: 'checkbox' }))).not.toBe('termsAgreement');
+  });
+  it('does NOT classify an at-will employment acknowledgment checkbox', () => {
+    expect(classifyField(ctx('I acknowledge this is at-will employment', { type: 'checkbox' }))).not.toBe('termsAgreement');
+  });
+  it('does NOT classify a drug screening consent checkbox', () => {
+    expect(classifyField(ctx('I consent to a drug test', { type: 'checkbox' }))).not.toBe('termsAgreement');
+  });
+});
+
 describe('classifyField — compensation', () => {
   it('classifies "Desired Salary" as desiredSalary', () => {
     expect(classifyField(ctx('Desired Salary'))).toBe('desiredSalary');

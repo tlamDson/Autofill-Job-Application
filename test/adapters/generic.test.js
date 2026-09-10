@@ -270,3 +270,121 @@ describe('runGenericFill', () => {
     expect(result.skipped).toBe(1);
   });
 });
+
+// ─── EEO decline-to-answer ──────────────────────────────────────────────────
+
+describe('runGenericFill — EEO decline-to-answer', () => {
+  it('selects a decline option when profile.eeo.gender is an explicit empty string', async () => {
+    const doc = makeDoc(`
+      <label for="gender">Gender</label>
+      <select id="gender">
+        <option value="">--</option>
+        <option value="male">Male</option>
+        <option value="decline">I don't wish to answer</option>
+      </select>
+    `);
+    const profile = { ...PROFILE, eeo: { ...PROFILE.eeo, gender: '' } };
+
+    const result = await runGenericFill(doc, profile);
+
+    expect(doc.getElementById('gender').value).toBe('decline');
+    expect(result.filled).toBe(1);
+  });
+
+  it('does not touch the field when profile.eeo.gender is unset (undefined)', async () => {
+    const doc = makeDoc(`
+      <label for="gender">Gender</label>
+      <select id="gender">
+        <option value="" selected>--</option>
+        <option value="male">Male</option>
+        <option value="decline">Decline to answer</option>
+      </select>
+    `);
+    // PROFILE.eeo has no gender key at all in this fixture's profile clone.
+    const profile = { ...PROFILE, eeo: {} };
+
+    const result = await runGenericFill(doc, profile);
+
+    expect(doc.getElementById('gender').value).toBe('');
+    expect(result.filled).toBe(0);
+  });
+
+  it('does not apply decline semantics to non-EEO fields with an empty string value', async () => {
+    const doc = makeDoc(`
+      <label for="fn">First Name</label>
+      <input id="fn" name="first_name" type="text" value="prefilled" />
+    `);
+    const profile = { ...PROFILE, personal: { ...PROFILE.personal, firstName: '' } };
+
+    // alreadyHasValue() would normally skip this since it has a value, but
+    // the point here is just that an empty-string firstName never triggers
+    // decline handling (firstName is not in DECLINE_ELIGIBLE_KEYS).
+    const plan = buildFillPlan(doc, profile);
+    expect(plan.find((p) => p.key === 'firstName')).toBeUndefined();
+  });
+});
+
+// ─── pronouns ────────────────────────────────────────────────────────────────
+
+describe('runGenericFill — pronouns', () => {
+  it('fills a field labeled "Pronouns" from profile.personal.pronouns', async () => {
+    const doc = makeDoc(`
+      <label for="pn">Pronouns</label>
+      <input id="pn" name="pronouns" type="text" />
+    `);
+    const profile = { ...PROFILE, personal: { ...PROFILE.personal, pronouns: 'they/them' } };
+
+    const result = await runGenericFill(doc, profile);
+
+    expect(doc.getElementById('pn').value).toBe('they/them');
+    expect(result.filled).toBe(1);
+  });
+});
+
+// ─── termsAgreement (consent checkbox) ──────────────────────────────────────
+
+describe('runGenericFill — termsAgreement consent checkbox', () => {
+  it('ticks the checkbox only when consents.agreeToTerms is explicitly true', async () => {
+    const doc = makeDoc(`
+      <label>
+        <input type="checkbox" id="tc" />
+        I agree to the Terms and Conditions
+      </label>
+    `);
+    const profile = { ...PROFILE, consents: { agreeToTerms: true } };
+
+    const result = await runGenericFill(doc, profile);
+
+    expect(doc.getElementById('tc').checked).toBe(true);
+    expect(result.filled).toBe(1);
+  });
+
+  it('does NOT tick the checkbox when consents.agreeToTerms is false (the default)', async () => {
+    const doc = makeDoc(`
+      <label>
+        <input type="checkbox" id="tc" />
+        I agree to the Terms and Conditions
+      </label>
+    `);
+    const profile = { ...PROFILE, consents: { agreeToTerms: false } };
+
+    const result = await runGenericFill(doc, profile);
+
+    expect(doc.getElementById('tc').checked).toBe(false);
+    expect(result.filled).toBe(0);
+  });
+
+  it('does NOT tick a background-check authorization checkbox even when agreeToTerms is true', async () => {
+    const doc = makeDoc(`
+      <label>
+        <input type="checkbox" id="bg" />
+        I authorize a background check
+      </label>
+    `);
+    const profile = { ...PROFILE, consents: { agreeToTerms: true } };
+
+    await runGenericFill(doc, profile);
+
+    expect(doc.getElementById('bg').checked).toBe(false);
+  });
+});

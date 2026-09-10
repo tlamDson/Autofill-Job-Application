@@ -467,6 +467,26 @@ const CLASSIFY_RULES = [
     key: 'disabilityStatus',
     test: (ctx) => /disabilit/i.test(_ctxText(ctx)),
   },
+  // ── Consent group ────────────────────────────────────────────────
+  // Checkbox-only, and deliberately excludes binding attestations that are
+  // not a simple "I agree to the privacy policy" checkbox — a background
+  // check, credit check, drug screen, arbitration clause, or at-will
+  // employment acknowledgment is not something this extension should ever
+  // tick on the user's behalf.
+  {
+    key: 'termsAgreement',
+    test: (ctx) => {
+      if (ctx.attrs.type !== 'checkbox') return false;
+      const t = _ctxText(ctx);
+      if (/background\s*check|credit\s*check|drug\s*(test|screen)|arbitration|at-will/i.test(t)) return false;
+      return /terms\s*(and|&)?\s*conditions|terms\s*of\s*service|agree|consent|acknowledge/i.test(t);
+    },
+  },
+  // ── Pronouns ─────────────────────────────────────────────────────
+  {
+    key: 'pronouns',
+    test: (ctx) => /pronoun/i.test(_ctxText(ctx)),
+  },
   // ── Compensation group (P1.7) ──────────────────────────────────
   {
     key: 'noticePeriod',

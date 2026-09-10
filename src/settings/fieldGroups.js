@@ -11,7 +11,7 @@ export const FIELD_GROUPS = [
   {
     id: 'personal',
     label: 'Personal',
-    keys: ['firstName', 'lastName', 'fullName', 'preferredName', 'email', 'phone', 'phoneCountryCode'],
+    keys: ['firstName', 'lastName', 'fullName', 'preferredName', 'email', 'phone', 'phoneCountryCode', 'pronouns'],
   },
   {
     id: 'location',
@@ -52,6 +52,11 @@ export const FIELD_GROUPS = [
     id: 'compensation',
     label: 'Compensation',
     keys: ['desiredSalary', 'noticePeriod'],
+  },
+  {
+    id: 'consents',
+    label: 'Consents',
+    keys: ['termsAgreement'],
   },
 ];
 

@@ -50,7 +50,13 @@ export function createEmptyProfile() {
     },
     workAuthorization: {
       needsSponsorship: false,
-      authorizedToWorkInCountry: {},
+      // null = not set (skip the field on any form rather than guess); the
+      // options page writes an explicit true/false once the user answers.
+      // Previously a map keyed by the candidate's own free-text country
+      // (authorizedToWorkInCountry), which required an exact string match
+      // against personal.address.country ("USA" vs "United States") and had
+      // no options-page UI to populate it, so it was always undefined.
+      authorizedToWork: null,
       visaStatus: '',
     },
     eeo: {
@@ -59,6 +65,11 @@ export function createEmptyProfile() {
       veteranStatus: '',
       disabilityStatus: '',
       hispanicLatino: null,
+    },
+    consents: {
+      // Only ever auto-ticked on this explicit, deliberate opt-in — see
+      // classifyField's termsAgreement rule for what it will and won't match.
+      agreeToTerms: false,
     },
     education: [],
     workHistory: [],
@@ -152,6 +163,21 @@ export function normalizeProfile(profile) {
   // phone → E.164 (strip formatting, keep leading +)
   if (pers.phone) {
     pers.phone = _toE164(pers.phone);
+  }
+
+  // Migrate the old authorizedToWorkInCountry map (removed: required an
+  // exact free-text country match and had no options-page UI, so it was
+  // always undefined in practice) to the plain authorizedToWork boolean.
+  // Best-effort: true if the map says so for ANY country, since a profile
+  // stored under the old shape predates this extension supporting more than
+  // one target country anyway.
+  if (p.workAuthorization && p.workAuthorization.authorizedToWorkInCountry) {
+    const map = p.workAuthorization.authorizedToWorkInCountry;
+    if (p.workAuthorization.authorizedToWork == null) {
+      const anyTrue = Object.values(map).some((v) => v === true);
+      p.workAuthorization.authorizedToWork = anyTrue ? true : null;
+    }
+    delete p.workAuthorization.authorizedToWorkInCountry;
   }
 
   // education dates
