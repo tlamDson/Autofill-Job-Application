@@ -171,3 +171,67 @@ export function createReviewPanel(doc, questions, callbacks = {}) {
 
   return panel;
 }
+
+// ─── Generate with AI button handler ─────────────────────────────────────────
+
+const MSG_AI_REQUEST = 'AUTOFILL_AI_REQUEST';
+
+/**
+ * Handle the "Generate with AI" button click for a single open question.
+ *
+ * Flow:
+ *  1. Disable the button + show loading state.
+ *  2. Send AUTOFILL_AI_REQUEST to the background service worker via sendMessage.
+ *  3. On success: populate the draft textarea with the AI-generated text.
+ *  4. On error: show the error in statusEl.
+ *  5. Re-enable the button.
+ *
+ * @param {object} opts
+ * @param {string}      opts.question       — question label text
+ * @param {Element}     opts.draftTextarea  — the textarea to populate
+ * @param {Element}     opts.aiButton       — the Generate with AI button
+ * @param {Element}     [opts.statusEl]     — optional status/error text element
+ * @param {object}      opts.profile        — user profile for context
+ * @param {object}      opts.settings       — AI provider settings
+ * @param {Function}    opts.sendMessage    — async function mirroring chrome.runtime.sendMessage
+ */
+export async function handleGenerateAI({
+  question,
+  draftTextarea,
+  aiButton,
+  statusEl,
+  profile,
+  settings,
+  sendMessage,
+}) {
+  // Loading state
+  if (aiButton) {
+    aiButton.disabled = true;
+    aiButton.textContent = 'Generating…';
+  }
+  if (statusEl) statusEl.textContent = '';
+
+  try {
+    const response = await sendMessage({
+      type: MSG_AI_REQUEST,
+      question,
+      label: question,
+      profile,
+      settings,
+    });
+
+    if (response && response.error) {
+      if (statusEl) statusEl.textContent = `Error: ${response.error}`;
+    } else if (response && response.draft) {
+      if (draftTextarea) draftTextarea.value = response.draft;
+    }
+  } catch (err) {
+    if (statusEl) statusEl.textContent = err.message || String(err);
+  } finally {
+    // Re-enable button
+    if (aiButton) {
+      aiButton.disabled = false;
+      aiButton.textContent = 'Generate with AI';
+    }
+  }
+}
