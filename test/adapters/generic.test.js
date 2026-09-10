@@ -126,6 +126,29 @@ describe('buildFillPlan', () => {
     expect(plan.some((p) => p.key === 'firstName')).toBe(true);
   });
 
+  it('skips a text field that already holds a value (idempotent re-fill)', () => {
+    const doc = makeDoc(`
+      <label for="fn">First Name</label>
+      <input id="fn" name="first_name" type="text" value="Grace" />
+      <label for="ln">Last Name</label>
+      <input id="ln" name="last_name" type="text" />
+    `);
+    const plan = buildFillPlan(doc, PROFILE);
+    const keys = plan.map((p) => p.key);
+    expect(keys.includes('firstName')).toBe(false); // already has "Grace" — left alone
+    expect(keys.includes('lastName')).toBe(true); // still blank — fill it
+  });
+
+  it('does not skip an unchecked checkbox/radio for having a static value attribute', () => {
+    const doc = makeDoc(`
+      <label for="sponsor">Requires sponsorship</label>
+      <input id="sponsor" name="needsSponsorship" type="checkbox" value="yes" />
+    `);
+    const profileWithSponsorship = { ...PROFILE, workAuthorization: { needsSponsorship: true } };
+    const plan = buildFillPlan(doc, profileWithSponsorship);
+    expect(plan.some((p) => p.key === 'needsSponsorship')).toBe(true);
+  });
+
   it('counts fields skipped by settings into the stats object', () => {
     const doc = makeDoc(`
       <label for="fn">First Name</label>
