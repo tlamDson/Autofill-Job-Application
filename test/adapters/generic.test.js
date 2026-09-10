@@ -7,7 +7,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { JSDOM } from 'jsdom';
-import { buildFillPlan, fillField } from '../../src/adapters/generic.js';
+import { buildFillPlan, fillField, runGenericFill } from '../../src/adapters/generic.js';
 import { createEmptyProfile } from '../../src/profile/schema.js';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -103,6 +103,40 @@ describe('buildFillPlan', () => {
     const plan = buildFillPlan(doc, profileWithWork);
     expect(plan.some((p) => p.key === 'company')).toBe(true);
   });
+
+  it('excludes a field disabled via settings.disabledFields', () => {
+    const doc = makeDoc(`
+      <label for="fn">First Name</label>
+      <input id="fn" name="first_name" type="text" />
+      <label for="em">Email</label>
+      <input id="em" name="email" type="email" />
+    `);
+    const plan = buildFillPlan(doc, PROFILE, { disabledFields: ['firstName'] });
+    const keys = plan.map((p) => p.key);
+    expect(keys.includes('firstName')).toBe(false);
+    expect(keys.includes('email')).toBe(true);
+  });
+
+  it('includes all classified fields when settings is omitted', () => {
+    const doc = makeDoc(`
+      <label for="fn">First Name</label>
+      <input id="fn" name="first_name" type="text" />
+    `);
+    const plan = buildFillPlan(doc, PROFILE);
+    expect(plan.some((p) => p.key === 'firstName')).toBe(true);
+  });
+
+  it('counts fields skipped by settings into the stats object', () => {
+    const doc = makeDoc(`
+      <label for="fn">First Name</label>
+      <input id="fn" name="first_name" type="text" />
+      <label for="ln">Last Name</label>
+      <input id="ln" name="last_name" type="text" />
+    `);
+    const stats = {};
+    buildFillPlan(doc, PROFILE, { disabledFields: ['firstName', 'lastName'] }, stats);
+    expect(stats.skippedByUser).toBe(2);
+  });
 });
 
 // ─── fillField ────────────────────────────────────────────────────────────────
@@ -168,5 +202,33 @@ describe('fillField', () => {
     const el = doc.querySelector('input');
     await fillField(el, 'firstName', undefined, doc);
     expect(el.value).toBe('original');
+  });
+});
+
+// ─── runGenericFill ─────────────────────────────────────────────────────────
+
+describe('runGenericFill', () => {
+  it('reports skippedByUser separately from filled/skipped', async () => {
+    const doc = makeDoc(`
+      <label for="fn">First Name</label>
+      <input id="fn" name="first_name" type="text" />
+      <label for="em">Email</label>
+      <input id="em" name="email" type="email" />
+    `);
+    const result = await runGenericFill(doc, PROFILE, { disabledFields: ['firstName'] });
+    expect(result.filled).toBe(1); // only email
+    expect(result.skippedByUser).toBe(1); // firstName
+    expect(doc.getElementById('fn').value).toBe('');
+    expect(doc.getElementById('em').value).toBe('ada@example.com');
+  });
+
+  it('fills every classified field when settings is omitted', async () => {
+    const doc = makeDoc(`
+      <label for="fn">First Name</label>
+      <input id="fn" name="first_name" type="text" />
+    `);
+    const result = await runGenericFill(doc, PROFILE);
+    expect(result.filled).toBe(1);
+    expect(result.skippedByUser).toBe(0);
   });
 });

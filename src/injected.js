@@ -33,13 +33,13 @@ const MSG_FILL_RESULT = 'FILL_RESULT';
     if (!event.data || event.data.type !== MSG_AUTOFILL_TRIGGER) return;
     if (event.data.source !== '__autofill_content__') return;
 
-    const { requestId, profile } = event.data;
+    const { requestId, profile, settings } = event.data;
 
     try {
       // Dynamic import of the generic adapter (works in bundled output)
       // In development, this file is loaded alongside the bundled adapter.
       const { runGenericFill } = await import('./adapters/generic.js');
-      const result = await runGenericFill(document, profile);
+      const result = await runGenericFill(document, profile, settings);
 
       window.postMessage({
         type: MSG_FILL_RESULT,
@@ -47,6 +47,7 @@ const MSG_FILL_RESULT = 'FILL_RESULT';
         ok: true,
         filled: result.filled,
         skipped: result.skipped,
+        skippedByUser: result.skippedByUser,
       }, '*');
     } catch (err) {
       window.postMessage({

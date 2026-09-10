@@ -69,6 +69,17 @@ describe('initPopup', () => {
     expect(statusArea.textContent).not.toContain('1 fields');
   });
 
+  it('shows the count of fields disabled via Settings when skippedByUser > 0', async () => {
+    const { button, statusArea } = makePopupDom();
+    const sendFill = vi.fn().mockResolvedValue({ ok: true, filled: 5, skipped: 0, skippedByUser: 2 });
+
+    initPopup({ button, statusArea, sendFill });
+    button.click();
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(statusArea.textContent).toContain('2 fields tắt trong Settings');
+  });
+
   it('shows error status when fill returns ok=false', async () => {
     const { button, statusArea } = makePopupDom();
     const sendFill = vi.fn().mockResolvedValue({ ok: false, error: 'Tab not found' });

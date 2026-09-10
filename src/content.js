@@ -17,6 +17,7 @@
  */
 
 import { loadProfile } from './profile/store.js';
+import { loadSettings } from './settings/store.js';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -40,7 +41,12 @@ export function makeMessageHandler({ runFill }) {
     // Handle async — must return true to keep channel open
     runFill()
       .then((result) => {
-        sendResponse({ ok: true, filled: result.filled, skipped: result.skipped });
+        sendResponse({
+          ok: true,
+          filled: result.filled,
+          skipped: result.skipped,
+          skippedByUser: result.skippedByUser,
+        });
       })
       .catch((err) => {
         console.error('[Autofill] fill error', err);
@@ -80,7 +86,7 @@ if (
    * Uses window.postMessage to cross the isolated/MAIN world boundary.
    */
   async function runFill() {
-    const profile = await loadProfile();
+    const [profile, settings] = await Promise.all([loadProfile(), loadSettings()]);
 
     return new Promise((resolve, reject) => {
       const requestId = `fill_${Date.now()}_${Math.random().toString(36).slice(2)}`;
@@ -93,8 +99,15 @@ if (
         )
           return;
         window.removeEventListener('message', onResult);
-        if (event.data.ok) resolve({ filled: event.data.filled, skipped: event.data.skipped });
-        else reject(new Error(event.data.error));
+        if (event.data.ok) {
+          resolve({
+            filled: event.data.filled,
+            skipped: event.data.skipped,
+            skippedByUser: event.data.skippedByUser,
+          });
+        } else {
+          reject(new Error(event.data.error));
+        }
       }
 
       window.addEventListener('message', onResult);
@@ -105,6 +118,7 @@ if (
           type: MSG_AUTOFILL_TRIGGER,
           requestId,
           profile,
+          settings,
           source: '__autofill_content__',
         },
         '*'
