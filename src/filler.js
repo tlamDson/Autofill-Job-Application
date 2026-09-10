@@ -200,6 +200,36 @@ export function resolveResumeFileName(profile, settings, originalName) {
 // ─── P1.12 — fillCombobox ────────────────────────────────────────────────────
 
 /**
+ * Build the ordered list of candidate strings to try against a combobox's
+ * options for a given target value. Plain (non-date) values pass through
+ * unchanged. A "yyyy-mm" date string (as stored for education/work-history
+ * start/end dates) expands to month-name/abbreviation/numeric and bare-year
+ * variants, since a real form commonly renders start/end dates as two
+ * *separate* comboboxes (month, year) rather than one combined picker — each
+ * one only recognizes its own half. Candidates are ordered most→least likely
+ * to be real option text; the raw "yyyy-mm" string itself is deliberately not
+ * included, since no observed real form renders it verbatim as an option.
+ *
+ * @param {string} value
+ * @returns {string[]}
+ */
+function dateCandidates(value) {
+  const str = String(value).trim();
+  const m = str.match(/^(\d{4})-(\d{2})$/);
+  if (!m) return [str];
+
+  const [, year, monthNum] = m;
+  const monthName = MONTH_NAMES[parseInt(monthNum, 10) - 1];
+  if (!monthName) return [str, year];
+
+  const capitalized = monthName[0].toUpperCase() + monthName.slice(1);
+  const abbrev = capitalized.slice(0, 3);
+  const unpadded = String(parseInt(monthNum, 10));
+
+  return [capitalized, abbrev, unpadded, monthNum, year];
+}
+
+/**
  * Fill a custom aria-combobox widget (e.g. React-Select).
  *
  * Handles two DOM shapes:
@@ -214,21 +244,24 @@ export function resolveResumeFileName(profile, settings, originalName) {
  *  1. Resolve the text input: `container` itself if it already is one, else
  *     search its descendants.
  *  2. Open the menu the way React-Select does — mousedown (not just focus)
- *     opens it — then type the target value to trigger its filter.
- *  3. Poll briefly for the listbox to render, since real widgets render
- *     options asynchronously and a single setTimeout(0) can fire too early.
+ *     opens it.
+ *  3. For each date candidate (see dateCandidates — a single candidate for
+ *     non-date values), type it to trigger the widget's filter and poll
+ *     briefly for the listbox to render, since real widgets render options
+ *     asynchronously and a single setTimeout(0) can fire too early.
  *  4. Resolve the listbox via aria-controls / aria-owns / a container-scoped
  *     search, falling back to a document-wide search — real widgets commonly
  *     portal their menu outside the input's DOM subtree entirely.
  *  5. Match by text (exact → starts-with → includes) and fire
  *     mousedown + mouseup + click on the option, mirroring real user input.
- *  6. If no [role="option"] ever appears, fall back to ArrowDown + Enter,
- *     which commits React-Select's own highlighted (first filtered) option.
+ *  6. If no [role="option"] ever appears for any candidate, fall back to
+ *     ArrowDown + Enter, which commits React-Select's own highlighted (first
+ *     filtered) option.
  *  7. Verify by reading the input's own value back, and return an honest
  *     boolean — never claim success when nothing actually matched.
  *
  * @param {HTMLElement} container  — element with role="combobox" (input or wrapper)
- * @param {string}      value      — desired option text
+ * @param {string}      value      — desired option text, or a "yyyy-mm" date string
  * @returns {Promise<boolean>}
  */
 export async function fillCombobox(container, value) {
@@ -244,11 +277,6 @@ export async function fillCombobox(container, value) {
   input.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
   input.focus();
 
-  // Type into the input to trigger filtering
-  setNativeValue(input, value);
-
-  const lower = value.toLowerCase().trim();
-
   function resolveListbox() {
     const controlsId = input.getAttribute('aria-controls') || container.getAttribute('aria-controls');
     const ownsId = input.getAttribute('aria-owns') || container.getAttribute('aria-owns');
@@ -261,36 +289,46 @@ export async function fillCombobox(container, value) {
     );
   }
 
-  function findMatch(listbox) {
+  function findMatch(listbox, lower) {
     const options = Array.from(listbox.querySelectorAll('[role="option"]'));
+    // The "includes" fallback is skipped for short candidates (e.g. an
+    // unpadded month digit like "9") — otherwise it can false-positive match
+    // an unrelated option purely because it contains that digit as a
+    // substring (e.g. "9" inside the year "2019"). exact/startsWith are safe
+    // at any length: "2019" does not start with "9".
     return (
       options.find((o) => o.textContent.trim().toLowerCase() === lower) ||
       options.find((o) => o.textContent.trim().toLowerCase().startsWith(lower)) ||
-      options.find((o) => o.textContent.trim().toLowerCase().includes(lower)) ||
+      (lower.length >= 3 && options.find((o) => o.textContent.trim().toLowerCase().includes(lower))) ||
       null
     );
   }
 
-  // Poll briefly for the listbox/options to render — real widgets update
-  // asynchronously in response to the input event dispatched above.
-  let match = null;
-  for (let attempt = 0; attempt < 10; attempt++) {
-    match = findMatch(resolveListbox());
-    if (match) break;
-    await new Promise((resolve) => setTimeout(resolve, 30));
+  for (const candidate of dateCandidates(value)) {
+    setNativeValue(input, candidate);
+    const lower = candidate.toLowerCase().trim();
+
+    // Poll briefly for the listbox/options to render — real widgets update
+    // asynchronously in response to the input event dispatched above.
+    let match = null;
+    for (let attempt = 0; attempt < 10; attempt++) {
+      match = findMatch(resolveListbox(), lower);
+      if (match) break;
+      await new Promise((resolve) => setTimeout(resolve, 30));
+    }
+
+    if (match) {
+      match.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      match.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+      match.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      setNativeValue(input, match.textContent.trim());
+      return true;
+    }
   }
 
-  if (match) {
-    match.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-    match.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
-    match.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    setNativeValue(input, match.textContent.trim());
-    return true;
-  }
-
-  // Keyboard fallback: no [role="option"] ever rendered via ARIA (e.g. the
-  // widget virtualizes its list), but a real combobox commonly still
-  // highlights a best match internally that Enter commits.
+  // Keyboard fallback: no [role="option"] ever rendered via ARIA for any
+  // candidate (e.g. the widget virtualizes its list), but a real combobox
+  // commonly still highlights a best match internally that Enter commits.
   const beforeKeyboard = (input.value || '').trim().toLowerCase();
   input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
   input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
