@@ -430,6 +430,105 @@ describe('classifyField — education group', () => {
   it('classifies graduation date as eduEndDate', () => {
     expect(classifyField(ctxWithSection('Graduation Date', 'education'))).toBe('eduEndDate');
   });
+
+  // Real forms (e.g. Greenhouse) commonly render School/Degree/Discipline with
+  // no enclosing fieldset or heading at all, so requiring sectionHint ===
+  // 'education' left them permanently unclassified. These labels are
+  // unambiguous enough to classify without a section hint.
+  it('classifies "School" as school with no section hint at all', () => {
+    expect(classifyField(ctxWithSection('School', null))).toBe('school');
+  });
+  it('classifies "Degree" as degree with no section hint at all', () => {
+    expect(classifyField(ctxWithSection('Degree', null))).toBe('degree');
+  });
+  it('classifies "Discipline" as fieldOfStudy with no section hint at all', () => {
+    expect(classifyField(ctxWithSection('Discipline', null))).toBe('fieldOfStudy');
+  });
+
+  // Start/end date labels remain genuinely ambiguous with work history, so
+  // they still require a confirmed education section hint.
+  it('does not classify "Start Date" as eduStartDate with no section hint', () => {
+    expect(classifyField(ctxWithSection('Start Date', null))).not.toBe('eduStartDate');
+  });
+  it('does not classify "End Date" as eduEndDate with no section hint', () => {
+    expect(classifyField(ctxWithSection('End Date', null))).not.toBe('eduEndDate');
+  });
+
+  // Safety net: an unambiguous education label still yields to a *confirmed*
+  // workHistory section, rather than overriding it.
+  it('does not classify "School" as school inside a confirmed workHistory section', () => {
+    expect(classifyField(ctxWithSection('School', 'workHistory'))).not.toBe('school');
+  });
+});
+
+// ─── section detection (_detectSection via buildContext) ──────────────────────
+//
+// Exercises the real DOM-walking heuristic, not the ctxWithSection() shortcut
+// above. The scenario mirrors a real Greenhouse-style form: one form-wide
+// wrapper containing many fields, whose first heading (querySelector's naive
+// pick) is unrelated to the education block nested several fields later.
+
+describe('buildContext — sectionHint via _detectSection', () => {
+  function domWithEducationBlock(html) {
+    return new JSDOM(`<!DOCTYPE html><body>${html}</body>`).window.document;
+  }
+
+  it('finds the nearest PRECEDING heading, not the first heading among all descendants', () => {
+    const doc = domWithEducationBlock(`
+      <form>
+        <h2>Software Engineer Application</h2>
+        <div class="field"><label for="fn">First Name</label><input id="fn" /></div>
+        <div class="field"><label for="ln">Last Name</label><input id="ln" /></div>
+        <section>
+          <h3>Education</h3>
+          <div class="field"><label for="sch">School</label><input id="sch" /></div>
+          <div class="field"><label for="deg">Degree</label><input id="deg" /></div>
+        </section>
+      </form>
+    `);
+    const schoolInput = doc.getElementById('sch');
+    expect(buildContext(schoolInput).sectionHint).toBe('education');
+
+    // The naive "first heading among all descendants" approach would have
+    // returned the job-title h2 for a field-level ancestor scan that widens
+    // enough to include it — first-name/last-name must NOT pick up "education".
+    const firstNameInput = doc.getElementById('fn');
+    expect(buildContext(firstNameInput).sectionHint).not.toBe('education');
+  });
+
+  it('resolves a later field in a multi-field education section, not just the first', () => {
+    const doc = domWithEducationBlock(`
+      <form>
+        <h2>Application</h2>
+        <section>
+          <h3>Education</h3>
+          <div class="field"><input id="sch" /></div>
+          <div class="field"><input id="deg" /></div>
+          <div class="field"><input id="major" /></div>
+        </section>
+      </form>
+    `);
+    expect(buildContext(doc.getElementById('major')).sectionHint).toBe('education');
+  });
+
+  it('recognizes a data-section attribute directly', () => {
+    const doc = domWithEducationBlock(`
+      <div data-section="education">
+        <input id="sch" />
+      </div>
+    `);
+    expect(buildContext(doc.getElementById('sch')).sectionHint).toBe('education');
+  });
+
+  it('bails out once an ancestor holds too many fields to be one section', () => {
+    const manyFields = Array.from({ length: 30 }, (_, i) => `<input id="f${i}" />`).join('');
+    const doc = domWithEducationBlock(`
+      <section><h3>Education</h3><div class="whole-form">${manyFields}</div></section>
+    `);
+    // The heading is 6+ levels away once the 30-field wrapper is treated as
+    // "the whole form" and the walk stops widening past it.
+    expect(buildContext(doc.getElementById('f0')).sectionHint).toBeNull();
+  });
 });
 
 describe('classifyField — workHistory group', () => {

@@ -441,6 +441,83 @@ describe('fillCombobox — role="combobox" directly on the <input>', () => {
   });
 });
 
+// ─── fillCombobox — "yyyy-mm" date splitting for separate month/year widgets ──
+//
+// Education/work-history dates are stored as one "yyyy-mm" string, but a real
+// form commonly renders start/end date as two SEPARATE comboboxes (month,
+// year) rather than one combined picker. Each one only recognizes its own
+// half, so fillCombobox must try month-name/numeric and bare-year candidates
+// rather than only the literal "yyyy-mm" string.
+
+describe('fillCombobox — date value splitting', () => {
+  function makePortalledCombobox(options) {
+    const lis = options.map((o, i) => `<li role="option" id="opt-${i}">${o}</li>`).join('');
+    const doc = makeDoc(`
+      <input role="combobox" aria-autocomplete="list" aria-controls="rs-listbox" />
+      <div id="menu-portal"></div>
+    `);
+    const input = doc.querySelector('input[role="combobox"]');
+    input.addEventListener('input', () => {
+      const portal = doc.getElementById('menu-portal');
+      const existing = portal.querySelector('#rs-listbox');
+      if (existing) existing.remove(); // re-filter on each keystroke, like a real widget
+      const ul = doc.createElement('ul');
+      ul.id = 'rs-listbox';
+      ul.setAttribute('role', 'listbox');
+      const lower = input.value.trim().toLowerCase();
+      ul.innerHTML = options
+        .filter((o) => o.toLowerCase().includes(lower))
+        .map((o, i) => `<li role="option" id="opt-${i}">${o}</li>`)
+        .join('');
+      portal.appendChild(ul);
+    });
+    return doc;
+  }
+
+  it('fills a month-only combobox from a "yyyy-mm" value using the month name', async () => {
+    const doc = makePortalledCombobox([
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December',
+    ]);
+    const input = doc.querySelector('input[role="combobox"]');
+
+    const result = await fillCombobox(input, '2021-09');
+
+    expect(result).toBe(true);
+    expect(input.value).toBe('September');
+  });
+
+  it('fills a year-only combobox from a "yyyy-mm" value using the bare year', async () => {
+    const doc = makePortalledCombobox(['2019', '2020', '2021', '2022', '2023']);
+    const input = doc.querySelector('input[role="combobox"]');
+
+    const result = await fillCombobox(input, '2021-09');
+
+    expect(result).toBe(true);
+    expect(input.value).toBe('2021');
+  });
+
+  it('matches a numeric month option (no month names rendered)', async () => {
+    const doc = makePortalledCombobox(['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']);
+    const input = doc.querySelector('input[role="combobox"]');
+
+    const result = await fillCombobox(input, '2021-09');
+
+    expect(result).toBe(true);
+    expect(input.value).toBe('9');
+  });
+
+  it('non-date values are unaffected — still tried as a single literal candidate', async () => {
+    const doc = makePortalledCombobox(['Massachusetts Institute of Technology', 'Stanford University']);
+    const input = doc.querySelector('input[role="combobox"]');
+
+    const result = await fillCombobox(input, 'Stanford University');
+
+    expect(result).toBe(true);
+    expect(input.value).toBe('Stanford University');
+  });
+});
+
 // ─── P1.13 — attachFileToInput ────────────────────────────────────────────────
 
 describe('attachFileToInput', () => {

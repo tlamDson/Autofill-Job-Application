@@ -156,19 +156,61 @@ export function buildContext(el) {
   return { attrs, labelText, nearbyText, sectionHint };
 }
 
+const HEADING_TAGS = /^(H1|H2|H3|H4|LEGEND)$/;
+
+function _matchSectionKeyword(text) {
+  if (/education|school|university|degree/.test(text)) return 'education';
+  if (/experience|employment|work\s*history|position/.test(text)) return 'workHistory';
+  return null;
+}
+
 /**
- * Detect section context by scanning ancestor headings.
+ * Detect section context by walking up from `el`, at each level checking the
+ * ancestor's own data-section/aria-label/id/class, then the nearest heading
+ * or <legend> that PRECEDES the branch we came from among that ancestor's
+ * children — not `querySelector('h1,h2,h3,h4,legend')`, which returns the
+ * first heading anywhere among *all* descendants of a wide ancestor (e.g. the
+ * job title at the top of the whole form) and so silently misclassifies or
+ * fails to classify fields nested many siblings after their real heading.
+ *
+ * Stops early once an ancestor holds more fillable fields than a single
+ * section plausibly would — at that point we've reached the whole form.
+ *
  * @param {HTMLElement} el
  * @returns {'education'|'workHistory'|null}
  */
 function _detectSection(el) {
+  let child = el;
   let node = el.parentElement;
-  for (let depth = 0; depth < 10; depth++) {
+
+  for (let depth = 0; depth < 6; depth++) {
     if (!node) break;
-    const text = (node.getAttribute('data-section') ||
-                  node.querySelector('h1,h2,h3,h4,legend')?.textContent || '').toLowerCase();
-    if (/education|school|university|degree/.test(text)) return 'education';
-    if (/experience|employment|work\s*history|position/.test(text)) return 'workHistory';
+
+    const ownHint = (
+      node.getAttribute('data-section') ||
+      node.getAttribute('aria-label') ||
+      node.id ||
+      node.className ||
+      ''
+    ).toString().toLowerCase();
+    const fromHint = _matchSectionKeyword(ownHint);
+    if (fromHint) return fromHint;
+
+    const siblings = Array.from(node.children);
+    const childIdx = siblings.indexOf(child);
+    for (let i = childIdx - 1; i >= 0; i--) {
+      if (HEADING_TAGS.test(siblings[i].tagName)) {
+        const fromHeading = _matchSectionKeyword(siblings[i].textContent.toLowerCase());
+        if (fromHeading) return fromHeading;
+        break; // nearest heading found but didn't match — don't look further back
+      }
+    }
+
+    // This ancestor holds too many fields to be a single section — it's the
+    // whole form (or close to it); widening further only adds noise.
+    if (node.querySelectorAll('input, select, textarea').length > 25) break;
+
+    child = node;
     node = node.parentElement;
   }
   return null;
@@ -440,13 +482,18 @@ const CLASSIFY_RULES = [
       return /desired\s*salary|expected\s*(salary|compensation|pay)|salary\s*expectation/i.test(t);
     },
   },
-  // ── Education group (P1.6) — sectionHint='education' preferred ─
+  // ── Education group (P1.6) ──────────────────────────────────────
+  // school/degree/fieldOfStudy labels are unambiguous enough to classify
+  // without a section hint — many real forms (e.g. Greenhouse) render them
+  // with no enclosing fieldset/heading at all, so requiring sectionHint ===
+  // 'education' left them permanently unclassified. Still refuse to fire
+  // inside a *confirmed* workHistory section, as a safety net.
   {
     key: 'school',
     test: (ctx) => {
       const t = _ctxText(ctx);
       const n = ctx.attrs.name || '';
-      return ctx.sectionHint === 'education' &&
+      return ctx.sectionHint !== 'workHistory' &&
              (/\bschool\b|university|college|institution/i.test(t) || /school|university/i.test(n));
     },
   },
@@ -454,7 +501,7 @@ const CLASSIFY_RULES = [
     key: 'degree',
     test: (ctx) => {
       const t = _ctxText(ctx);
-      return ctx.sectionHint === 'education' &&
+      return ctx.sectionHint !== 'workHistory' &&
              /\bdegree\b|level\s*of\s*education/i.test(t);
     },
   },
@@ -462,7 +509,7 @@ const CLASSIFY_RULES = [
     key: 'fieldOfStudy',
     test: (ctx) => {
       const t = _ctxText(ctx);
-      return ctx.sectionHint === 'education' &&
+      return ctx.sectionHint !== 'workHistory' &&
              /field\s*of\s*study|major|discipline|concentration/i.test(t);
     },
   },
